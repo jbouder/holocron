@@ -1,0 +1,26 @@
+# Monthly dependency and workflow updates as pull requests. They run the CI
+# `check` job like any other PR and never deploy (see docs/self-hosting.md).
+version: 2
+updates:
+  # package.json + bun.lock. Dependabot regenerates bun.lock, so
+  # `bun install --frozen-lockfile` in CI keeps passing.
+  - package-ecosystem: bun
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    labels: [dependencies]
+    groups:
+      # Minors and patches land as one PR; each major gets its own.
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    labels: [dependencies]
+    groups:
+      actions:
+        update-types: [minor, patch]
