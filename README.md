@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/mark-on-dark.svg" />
+    <img src="docs/brand/mark-on-light.svg" alt="" width="96" height="96" />
+  </picture>
+</p>
+
 # Holocron
 
 The retro board that doesn't keep your retros.
