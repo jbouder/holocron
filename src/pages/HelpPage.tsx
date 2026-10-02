@@ -53,8 +53,9 @@ export function HelpPage() {
             . Pick a template, give it a title if you like, and you get a
             six-character code such as{' '}
             <span className="code-display">K7MXQ2</span>. Share the code or the
-            link; whoever opens it is on the board. There are no invitations and
-            no passwords.
+            link, or let people in the room scan the QR code in the Share
+            dialog; whoever opens it is on the board. There are no invitations
+            and no passwords.
           </p>
           <p>
             Templates set the starting columns. The owner can add, rename and
