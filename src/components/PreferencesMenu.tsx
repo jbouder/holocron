@@ -1,9 +1,4 @@
-import {
-  GearSixIcon,
-  MoonIcon,
-  SunIcon,
-  UserIcon,
-} from '@phosphor-icons/react';
+import { GearSixIcon, UserIcon } from '@phosphor-icons/react';
 import { useState } from 'react';
 import { NameDialog } from '@/components/NameDialog';
 import { Button } from '@/components/ui/button';
@@ -14,16 +9,19 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useIdentity } from '@/lib/identity';
+import { isThemeId, THEMES } from '@/lib/themes';
 import { useMotion } from '@/providers/MotionProvider';
 import { useTheme } from '@/providers/ThemeProvider';
 
 /** Theme, motion and your name. Per device, nothing here touches a board. */
 export function PreferencesMenu() {
-  const { theme, toggle } = useTheme();
+  const { theme, setTheme } = useTheme();
   const motion = useMotion();
   const identity = useIdentity();
   const [naming, setNaming] = useState(false);
@@ -46,13 +44,6 @@ export function PreferencesMenu() {
         <DropdownMenuContent align="end" className="w-60">
           <DropdownMenuGroup>
             <DropdownMenuLabel>Preferences</DropdownMenuLabel>
-            <DropdownMenuItem closeOnClick={false} onClick={toggle}>
-              <span key={theme} className="theme-icon inline-flex">
-                {theme === 'dark' ? <MoonIcon /> : <SunIcon />}
-              </span>
-              <span className="flex-1">Theme</span>
-              <span className="text-muted-foreground capitalize">{theme}</span>
-            </DropdownMenuItem>
             <DropdownMenuCheckboxItem
               closeOnClick={false}
               checked={motion.preference}
@@ -64,6 +55,26 @@ export function PreferencesMenu() {
                 <span className="text-muted-foreground">off by your OS</span>
               )}
             </DropdownMenuCheckboxItem>
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>Theme</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={theme}
+              onValueChange={(value) => {
+                if (isThemeId(value)) setTheme(value);
+              }}
+            >
+              {THEMES.map((t) => (
+                <DropdownMenuRadioItem
+                  key={t.id}
+                  value={t.id}
+                  closeOnClick={false}
+                >
+                  {t.label}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuGroup>

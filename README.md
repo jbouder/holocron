@@ -37,7 +37,8 @@ WebSockets, and wipes itself on an alarm.
 - **Ownership.** The creator can rename, manage columns, lock facilitation to
   themselves, change vote budgets, and delete the board early. Ownership is a
   token in the creating browser; the server stores only its hash.
-- **Light and dark**, and a motion switch in Preferences.
+- **Themes**: System, Light, Dark, plus Dagobah, Tatooine and Synthwave,
+  and a motion switch in Preferences.
   `prefers-reduced-motion` is a hard override.
 - **In-app help** at `/help` covers everything above for participants.
 
@@ -96,7 +97,6 @@ watch a board expire during development.
 
 ## Roadmap
 
-- A few selectable themes beyond light/dark, including some fun ones.
 - QR code in the share dialog, reactions, card comments.
 - Turnstile on board creation if abuse shows up.
 

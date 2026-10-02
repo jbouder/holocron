@@ -73,13 +73,13 @@
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
+  --muted-foreground: oklch(0.53 0 0);
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --ring: oklch(0.6 0 0);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -132,6 +132,105 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
   --fx-glow: oklch(0.98 0 0);
+}
+
+/* ---- Extra themes ----------------------------------------------------------
+ * Each one sits on top of light or dark: the html element also carries `.dark`
+ * for the dark-based ones, so `dark:` variants and color-scheme still apply.
+ * Ids and bases are listed in src/lib/themes.ts and mirrored in index.html.
+ * test/themes.test.ts checks every theme against WCAG AA. */
+
+html[data-theme="dagobah"] {
+  --background: oklch(0.17 0.025 150);
+  --foreground: oklch(0.94 0.03 130);
+  --card: oklch(0.22 0.03 150);
+  --card-foreground: oklch(0.94 0.03 130);
+  --popover: oklch(0.22 0.03 150);
+  --popover-foreground: oklch(0.94 0.03 130);
+  --primary: oklch(0.8 0.15 135);
+  --primary-foreground: oklch(0.2 0.04 145);
+  --secondary: oklch(0.3 0.045 150);
+  --secondary-foreground: oklch(0.94 0.03 130);
+  --muted: oklch(0.28 0.035 150);
+  --muted-foreground: oklch(0.76 0.04 140);
+  --accent: oklch(0.31 0.05 150);
+  --accent-foreground: oklch(0.94 0.03 130);
+  --destructive: oklch(0.72 0.17 30);
+  --border: oklch(0.85 0.08 140 / 14%);
+  --input: oklch(0.85 0.08 140 / 18%);
+  --ring: oklch(0.64 0.11 140);
+  --chart-1: oklch(0.8 0.15 135);
+  --chart-2: oklch(0.68 0.12 160);
+  --chart-3: oklch(0.58 0.1 120);
+  --chart-4: oklch(0.48 0.08 150);
+  --chart-5: oklch(0.38 0.06 140);
+  --fx-glow: oklch(0.9 0.13 135);
+}
+
+html[data-theme="tatooine"] {
+  --background: oklch(0.96 0.025 80);
+  --foreground: oklch(0.25 0.04 55);
+  --card: oklch(0.985 0.015 85);
+  --card-foreground: oklch(0.25 0.04 55);
+  --popover: oklch(0.985 0.015 85);
+  --popover-foreground: oklch(0.25 0.04 55);
+  --primary: oklch(0.5 0.15 45);
+  --primary-foreground: oklch(0.99 0.01 80);
+  --secondary: oklch(0.91 0.045 75);
+  --secondary-foreground: oklch(0.28 0.05 55);
+  --muted: oklch(0.92 0.035 75);
+  --muted-foreground: oklch(0.47 0.05 60);
+  --accent: oklch(0.9 0.05 70);
+  --accent-foreground: oklch(0.25 0.04 55);
+  --destructive: oklch(0.52 0.2 27);
+  --border: oklch(0.86 0.04 70);
+  --input: oklch(0.84 0.045 70);
+  --ring: oklch(0.6 0.12 50);
+  --chart-1: oklch(0.5 0.15 45);
+  --chart-2: oklch(0.62 0.13 65);
+  --chart-3: oklch(0.72 0.11 80);
+  --chart-4: oklch(0.55 0.08 30);
+  --chart-5: oklch(0.42 0.06 55);
+  --fx-glow: oklch(0.45 0.11 50);
+}
+
+html[data-theme="synthwave"] {
+  --background: oklch(0.17 0.06 295);
+  --foreground: oklch(0.95 0.03 320);
+  --card: oklch(0.22 0.075 295);
+  --card-foreground: oklch(0.95 0.03 320);
+  --popover: oklch(0.22 0.075 295);
+  --popover-foreground: oklch(0.95 0.03 320);
+  --primary: oklch(0.72 0.22 350);
+  --primary-foreground: oklch(0.17 0.06 295);
+  --secondary: oklch(0.31 0.1 295);
+  --secondary-foreground: oklch(0.95 0.03 320);
+  --muted: oklch(0.28 0.08 295);
+  --muted-foreground: oklch(0.78 0.07 310);
+  --accent: oklch(0.32 0.11 300);
+  --accent-foreground: oklch(0.95 0.03 320);
+  --destructive: oklch(0.74 0.18 25);
+  --border: oklch(0.85 0.15 320 / 16%);
+  --input: oklch(0.85 0.15 320 / 20%);
+  --ring: oklch(0.8 0.14 200);
+  --chart-1: oklch(0.72 0.22 350);
+  --chart-2: oklch(0.8 0.14 200);
+  --chart-3: oklch(0.85 0.17 90);
+  --chart-4: oklch(0.65 0.2 300);
+  --chart-5: oklch(0.55 0.15 260);
+  --fx-glow: oklch(0.86 0.15 200);
+}
+
+/* The sidebar tokens follow the card surface in the extra themes. */
+html[data-theme] {
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--card-foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
 }
 
 @layer base {
@@ -321,18 +420,6 @@ html[data-vt="theme"]::view-transition-new(root) {
 @keyframes theme-fade {
   from {
     opacity: 0;
-  }
-}
-
-/* The sun/moon icon swaps with a small turn (React re-keys it). */
-.theme-icon {
-  animation: theme-icon-in var(--duration-base) var(--ease-emphasized) both;
-}
-@keyframes theme-icon-in {
-  from {
-    opacity: 0;
-    rotate: -90deg;
-    scale: 0.6;
   }
 }
 
