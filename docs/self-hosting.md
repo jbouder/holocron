@@ -188,3 +188,17 @@ npm run deploy
 Durable Object migrations are declared in `wrangler.jsonc`. The current
 version has one (`v1`, `new_sqlite_classes`). If a future version adds a
 migration tag, deploying applies it.
+
+## Link previews
+
+`index.html` carries Open Graph tags so a pasted link unfurls in Slack,
+Teams and the like. Preview images have to be absolute URLs, so `og:image`
+points at the public instance. On your own deployment, change it to your
+origin:
+
+```html
+<meta property="og:image" content="https://retro.example.com/og.png" />
+```
+
+The image itself (`public/og.png`), the favicons and the manifest icons are
+rendered from `docs/brand/mark.svg`; nothing else needs to change.

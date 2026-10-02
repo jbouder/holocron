@@ -1,8 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <title>Holocron</title>
-  <rect width="64" height="64" rx="12" fill="#1a1a1a"/>
-  <g transform="translate(32 32) scale(.84) translate(-32 -32)">
+  <title>Holocron mark</title>
   <path d="M32 8 53 20v24L32 56 11 44V20Z" fill="none" stroke="#ebebeb" stroke-width="7" stroke-linejoin="round"/>
   <path d="M32 21 43 32 32 43 21 32Z" fill="#ebebeb"/>
-  </g>
 </svg>

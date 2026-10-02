@@ -51,20 +51,13 @@ export function HolocronMark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 64 64" className={className} aria-hidden="true">
       <path
-        d="M32 10 52 22v20L32 54 12 42V22Z"
+        d="M32 8 53 20v24L32 56 11 44V20Z"
         fill="none"
         stroke="currentColor"
-        strokeWidth="5"
+        strokeWidth="7"
         strokeLinejoin="round"
       />
-      <path
-        d="M32 10v44M12 22l20 12 20-12"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="3.5"
-        strokeLinejoin="round"
-        opacity=".55"
-      />
+      <path d="M32 21 43 32 32 43 21 32Z" fill="currentColor" />
     </svg>
   );
 }
