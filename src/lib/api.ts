@@ -1,0 +1,74 @@
+import type { BoardMeta, CreateBoardResponse } from '#shared/protocol';
+
+/** The three HTTP calls. Everything else happens over the WebSocket. */
+
+export class ApiError extends Error {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+async function request<T>(input: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(input, init);
+  if (response.status === 204) {
+    return undefined as T;
+  }
+  const body = (await response.json().catch(() => ({}))) as {
+    error?: string;
+  } & T;
+  if (!response.ok) {
+    throw new ApiError(
+      response.status,
+      body.error ?? `Request failed (${response.status})`,
+    );
+  }
+  return body;
+}
+
+export function createBoard(input: {
+  title: string;
+  templateId: string;
+  participantId: string;
+  name: string;
+}): Promise<CreateBoardResponse> {
+  return request('/api/boards', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+}
+
+export function getBoardMeta(code: string): Promise<BoardMeta> {
+  return request(`/api/boards/${encodeURIComponent(code)}`);
+}
+
+export function deleteBoard(code: string, ownerToken: string): Promise<void> {
+  return request(`/api/boards/${encodeURIComponent(code)}`, {
+    method: 'DELETE',
+    headers: { authorization: `Bearer ${ownerToken}` },
+  });
+}
+
+export function exportUrl(code: string): string {
+  return `/api/boards/${encodeURIComponent(code)}/export.md`;
+}
+
+export function socketUrl(
+  code: string,
+  pid: string,
+  name: string,
+  token: string | null,
+): string {
+  const url = new URL(`/ws/${encodeURIComponent(code)}`, window.location.href);
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+  url.searchParams.set('pid', pid);
+  url.searchParams.set('name', name);
+  if (token) {
+    url.searchParams.set('token', token);
+  }
+  return url.toString();
+}

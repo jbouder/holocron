@@ -1,0 +1,375 @@
+import { ArrowRightIcon, CrownSimpleIcon, XIcon } from '@phosphor-icons/react';
+import { type FormEvent, useEffect, useState } from 'react';
+import { CODE_LENGTH, isValidCode, normalizeCode } from '#shared/codes';
+import { LIMITS } from '#shared/limits';
+import type { AppConfig } from '#shared/protocol';
+import { DEFAULT_TEMPLATE_ID, TEMPLATES } from '#shared/templates';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { formatRemaining, useNow } from '@/hooks/useNow';
+import { ApiError, createBoard, getBoardMeta } from '@/lib/api';
+import {
+  setName as saveName,
+  setOwnerToken,
+  useIdentity,
+} from '@/lib/identity';
+import {
+  forgetBoard,
+  rememberBoard,
+  useRecentBoards,
+} from '@/lib/recent-boards';
+import { linkProps, navigate } from '@/lib/router';
+import { cn } from '@/lib/utils';
+import { useToast } from '@/providers/ToastProvider';
+
+export function HomePage() {
+  const config = useConfig();
+  return (
+    <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-10 px-4 py-10 sm:px-6 lg:py-14">
+      <section
+        className="stagger-in max-w-2xl"
+        style={{ '--i': 0 } as React.CSSProperties}
+      >
+        <h1 className="font-heading text-4xl font-semibold tracking-tight sm:text-5xl">
+          Retro boards that are gone by morning.
+        </h1>
+        <p className="mt-4 text-pretty text-base text-muted-foreground sm:text-lg">
+          Create a board, share the six-letter code, and run the retro together:
+          write, vote, discuss, decide. Every board is wiped at{' '}
+          <span className="text-foreground">
+            {config?.resetLabel ?? '6:00 AM ET'}
+          </span>{' '}
+          each day. Export what matters before then.
+        </p>
+      </section>
+
+      <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+        <CreatePanel />
+        <div className="flex flex-col gap-6">
+          <JoinPanel />
+          <RecentPanel />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CreatePanel() {
+  const identity = useIdentity();
+  const toast = useToast();
+  const [name, setName] = useState(identity.name);
+  const [title, setTitle] = useState('');
+  const [templateId, setTemplateId] = useState(DEFAULT_TEMPLATE_ID);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!name && identity.name) {
+      setName(identity.name);
+    }
+  }, [identity.name, name]);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    const trimmed = name.trim();
+    if (!trimmed || busy) {
+      return;
+    }
+    setBusy(true);
+    try {
+      saveName(trimmed);
+      const created = await createBoard({
+        title: title.trim(),
+        templateId,
+        participantId: identity.id,
+        name: trimmed,
+      });
+      setOwnerToken(created.code, created.ownerToken);
+      rememberBoard({
+        code: created.code,
+        title:
+          title.trim() ||
+          TEMPLATES.find((t) => t.id === templateId)?.name ||
+          'Retro',
+        expiresAt: created.expiresAt,
+        owner: true,
+      });
+      navigate({ name: 'board', code: created.code });
+    } catch (error) {
+      toast.show(
+        error instanceof ApiError
+          ? error.message
+          : 'Could not create the board',
+      );
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card className="stagger-in" style={{ '--i': 1 } as React.CSSProperties}>
+      <CardHeader>
+        <CardTitle className="text-lg">Create a board</CardTitle>
+        <CardDescription>
+          You will be its owner: only you can delete it early.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={submit} className="grid gap-5">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label htmlFor="create-name">Your name</Label>
+              <Input
+                id="create-name"
+                required
+                maxLength={LIMITS.nameMax}
+                autoComplete="nickname"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Leia"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="create-title">
+                Board title{' '}
+                <span className="text-muted-foreground">(optional)</span>
+              </Label>
+              <Input
+                id="create-title"
+                maxLength={LIMITS.titleMax}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Sprint 42 retro"
+              />
+            </div>
+          </div>
+
+          <fieldset className="grid gap-2">
+            <legend className="mb-2 text-sm font-medium">Template</legend>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {TEMPLATES.map((template, i) => {
+                const selected = template.id === templateId;
+                return (
+                  <label
+                    key={template.id}
+                    className={cn(
+                      'press stagger-in flex cursor-pointer flex-col gap-2 rounded-lg border p-3 text-left transition-colors hover:bg-muted/60 has-focus-visible:outline-2 has-focus-visible:outline-ring/60',
+                      selected && 'border-foreground/60 bg-muted/60',
+                    )}
+                    style={{ '--i': i + 2 } as React.CSSProperties}
+                  >
+                    <input
+                      type="radio"
+                      name="template"
+                      value={template.id}
+                      checked={selected}
+                      onChange={() => setTemplateId(template.id)}
+                      className="sr-only"
+                    />
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="font-medium">{template.name}</span>
+                      <span
+                        aria-hidden="true"
+                        className={cn(
+                          'size-3 rounded-full border transition-colors',
+                          selected
+                            ? 'border-foreground bg-foreground'
+                            : 'border-border',
+                        )}
+                      />
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {template.description}
+                    </span>
+                    <span className="flex flex-wrap gap-1">
+                      {template.columns.map((c) => (
+                        <Badge
+                          key={c}
+                          variant="outline"
+                          className="font-normal"
+                        >
+                          {c}
+                        </Badge>
+                      ))}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
+
+          <div className="flex items-center justify-end gap-3">
+            <Button
+              type="submit"
+              size="lg"
+              disabled={busy || !name.trim()}
+              className="press"
+            >
+              {busy ? 'Creating…' : 'Create board'}
+              <ArrowRightIcon data-icon="inline-end" />
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+function JoinPanel() {
+  const [code, setCode] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const normalized = normalizeCode(code);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (!isValidCode(normalized)) {
+      setError(`Codes are ${CODE_LENGTH} letters and numbers.`);
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await getBoardMeta(normalized);
+      navigate({ name: 'board', code: normalized });
+    } catch (err) {
+      setError(
+        err instanceof ApiError && err.status === 404
+          ? 'No board with that code. It may have expired.'
+          : 'Could not reach the board. Try again.',
+      );
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card className="stagger-in" style={{ '--i': 2 } as React.CSSProperties}>
+      <CardHeader>
+        <CardTitle className="text-lg">Join a board</CardTitle>
+        <CardDescription>
+          Enter the code someone shared with you.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={submit} className="flex items-start gap-2">
+          <div className="grid flex-1 gap-1">
+            <Label htmlFor="join-code" className="sr-only">
+              Board code
+            </Label>
+            <Input
+              id="join-code"
+              value={code}
+              onChange={(e) => {
+                setCode(e.target.value.toUpperCase());
+                setError(null);
+              }}
+              placeholder="ABC123"
+              maxLength={CODE_LENGTH + 2}
+              autoCapitalize="characters"
+              autoCorrect="off"
+              spellCheck={false}
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? 'join-error' : undefined}
+              className="code-display h-9 text-base"
+            />
+            {error && (
+              <p id="join-error" className="text-xs text-destructive">
+                {error}
+              </p>
+            )}
+          </div>
+          <Button
+            type="submit"
+            size="lg"
+            variant="secondary"
+            disabled={busy}
+            className="press"
+          >
+            {busy ? 'Checking…' : 'Join'}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+function RecentPanel() {
+  const recent = useRecentBoards();
+  const now = useNow(30_000);
+  if (recent.length === 0) {
+    return null;
+  }
+  return (
+    <Card className="stagger-in" style={{ '--i': 3 } as React.CSSProperties}>
+      <CardHeader>
+        <CardTitle className="text-lg">Your recent boards</CardTitle>
+        <CardDescription>On this device, until they expire.</CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-1">
+        {recent.map((board) => (
+          <div
+            key={board.code}
+            className="group flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-muted/60"
+          >
+            <a
+              {...linkProps({ name: 'board', code: board.code })}
+              className="flex min-w-0 flex-1 items-center gap-3 outline-ring/50 focus-visible:outline-2"
+            >
+              <span className="code-display text-xs text-muted-foreground">
+                {board.code}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-sm">
+                {board.title}
+              </span>
+              {board.owner && (
+                <CrownSimpleIcon
+                  className="size-3.5 shrink-0 text-muted-foreground"
+                  aria-label="You own this board"
+                />
+              )}
+              <span className="shrink-0 text-xs text-muted-foreground tabular">
+                {formatRemaining(board.expiresAt - now)} left
+              </span>
+            </a>
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              className="press opacity-0 group-focus-within:opacity-100 group-hover:opacity-100"
+              aria-label={`Forget ${board.title}`}
+              onClick={() => forgetBoard(board.code)}
+            >
+              <XIcon />
+            </Button>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Deployment facts (reset time) for the copy on this page. */
+export function useConfig(): AppConfig | null {
+  const [config, setConfig] = useState<AppConfig | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/config')
+      .then((r) => (r.ok ? (r.json() as Promise<AppConfig>) : null))
+      .then((c) => {
+        if (!cancelled && c) {
+          setConfig(c);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return config;
+}

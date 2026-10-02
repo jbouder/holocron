@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>Holocron</title>
+  <rect width="64" height="64" rx="12" fill="#1a1a1a"/>
+  <path d="M32 10 52 22v20L32 54 12 42V22Z" fill="none" stroke="#ebebeb" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M32 10v44M12 22l20 12 20-12" fill="none" stroke="#ebebeb" stroke-width="3" stroke-linejoin="round" opacity=".6"/>
+</svg>

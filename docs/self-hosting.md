@@ -1,0 +1,124 @@
+# Running Holocron on your own Cloudflare account
+
+Holocron is a single Cloudflare Worker with one Durable Object class. There is
+no database to provision, no queue, no KV namespace. Deploying creates:
+
+| Resource | What it is |
+|---|---|
+| Worker `holocron` | Serves the built app (static assets) and routes `/api/*` and `/ws/*` |
+| Durable Object `BoardObject` | One instance per board, SQLite-backed, created on demand |
+| Rate limit binding | Caps board creation at 10 per minute per IP |
+
+Boards live only inside their Durable Object. When a board expires its object
+deletes all of its storage, so an idle deployment holds nothing.
+
+## Prerequisites
+
+- A Cloudflare account. The free Workers plan is enough for a few teams;
+  Durable Objects with SQLite storage are included on the free plan with
+  limits, see [Durable Objects pricing](https://developers.cloudflare.com/durable-objects/platform/pricing/).
+- Node 22+ and [bun](https://bun.sh) (used for installs; npm's resolver
+  currently fails on Vitest 4.1's peer dependencies).
+
+## Deploy from your machine
+
+```bash
+git clone https://github.com/jbouder/holocron
+cd holocron
+bun install
+npx wrangler login        # opens the browser once
+npm run deploy            # builds, then `wrangler deploy`
+```
+
+The first deploy prints a `*.workers.dev` URL. Open it; you have a Holocron.
+
+`wrangler deploy` reads `wrangler.jsonc` at the repository root. The Vite
+plugin writes the final config and bundle under `dist/` and points wrangler at
+it, so no `--config` flag is needed.
+
+## Change when boards are wiped
+
+The reset time is two variables in `wrangler.jsonc`:
+
+```jsonc
+"vars": {
+  "RESET_TZ": "America/New_York",   // any IANA time zone
+  "RESET_HOUR": "6"                  // 0–23 in that zone
+}
+```
+
+Edit and redeploy. New boards pick up the new schedule; boards created before
+the change keep the expiry they were created with. The home page and Help page
+read the live value from `/api/config`, so the copy stays correct.
+
+## Custom domain
+
+In the Cloudflare dashboard: Workers & Pages → holocron → Settings → Domains &
+Routes → Add → Custom domain. Or add to `wrangler.jsonc`:
+
+```jsonc
+"routes": [{ "pattern": "retro.example.com", "custom_domain": true }]
+```
+
+WebSockets work on custom domains without extra configuration.
+
+## Deploy from GitHub Actions
+
+`.github/workflows/deploy.yml` runs checks and tests on every push, and
+deploys `main` when two repository secrets exist:
+
+| Secret | Where to get it |
+|---|---|
+| `CLOUDFLARE_API_TOKEN` | Dashboard → My Profile → API Tokens → Create → "Edit Cloudflare Workers" template |
+| `CLOUDFLARE_ACCOUNT_ID` | Dashboard → Workers & Pages → Overview (right-hand column) |
+
+Add them under Settings → Secrets and variables → Actions. The deploy job uses
+a `production` environment; create it (Settings → Environments) if you want
+required reviewers before a deploy.
+
+## Local development
+
+```bash
+cp .dev.vars.example .dev.vars   # optional
+npm run dev
+```
+
+`npm run dev` runs Vite with the Cloudflare plugin: the Worker and the Durable
+Object run locally in Miniflare with hot reload, state persisted under
+`.wrangler/`. Open two browser tabs on the same board to see live sync.
+
+Set `DEV_BOARD_TTL_SECONDS=60` in `.dev.vars` to make new boards expire a
+minute after creation so you can watch the wipe.
+
+## Observability
+
+- `npm run tail` streams live logs (`wrangler tail`).
+- `observability.enabled` is on in `wrangler.jsonc`, so Workers Logs in the
+  dashboard keeps recent invocations.
+- The Worker logs one JSON line per failed request. Normal traffic is not
+  logged by the app.
+
+## Wiping everything now
+
+Every board wipes itself at the reset. To remove everything immediately,
+delete the Worker (Dashboard → Workers & Pages → holocron → Settings →
+Delete), which also deletes the Durable Object namespace and all its storage.
+Redeploying starts clean.
+
+## Limits you may want to change
+
+All in `shared/limits.ts`: cards per board, columns, participants, card
+length, votes range, timer range, ops per second. The create rate limit is in
+`wrangler.jsonc` under `ratelimits`.
+
+## Updating
+
+```bash
+git pull
+bun install
+npm run deploy
+```
+
+Durable Object migrations are declared in `wrangler.jsonc`. The current
+version has one (`v1`, `new_sqlite_classes`). If a future version adds a
+migration tag, deploying applies it.

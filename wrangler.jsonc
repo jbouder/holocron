@@ -1,0 +1,39 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "holocron",
+  "main": "./worker/index.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // The Vite plugin fills in `assets.directory` with the client build.
+  // API and WebSocket routes reach the Worker first; everything else is the
+  // single-page app, so deep links like /b/ABC123 load index.html.
+  "assets": {
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/ws/*"]
+  },
+
+  // One Durable Object per board. Its SQLite storage *is* the database.
+  "durable_objects": {
+    "bindings": [{ "name": "BOARD", "class_name": "BoardObject" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["BoardObject"] }],
+
+  // Board creation is rate limited per client IP.
+  "ratelimits": [
+    {
+      "name": "CREATE_LIMITER",
+      "namespace_id": "1001",
+      "simple": { "limit": 10, "period": 60 }
+    }
+  ],
+
+  // When every board is wiped. Self-hosters: change these and redeploy.
+  // RESET_HOUR is 0–23 in RESET_TZ (an IANA time zone name).
+  "vars": {
+    "RESET_TZ": "America/New_York",
+    "RESET_HOUR": "6"
+  },
+
+  "observability": { "enabled": true }
+}

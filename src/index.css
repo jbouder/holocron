@@ -1,0 +1,537 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/oxanium";
+@import "@fontsource-variable/jetbrains-mono";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Theme: stock shadcn base-lyra (neutral) with the font swap used in
+ * tanstack-markdown-demos — Oxanium Variable for body AND headings (Lyra
+ * normally sets JetBrains Mono as the body font); JetBrains Mono is reserved
+ * for code.
+ */
+@theme inline {
+  --font-sans: "Oxanium Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-sans);
+  --font-mono:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+  /* Pointer-tracking glow (spotlight borders). Brighter than --ring so the
+   * edge reads clearly; the light theme darkens instead of washing out. */
+  --fx-glow: oklch(0.42 0 0);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+  --fx-glow: oklch(0.98 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    @apply font-sans;
+    scroll-behavior: smooth;
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  html,
+  body,
+  #root {
+    width: 100%;
+    margin: 0;
+    min-height: 100%;
+  }
+
+  /* Stops live counters and animated readouts from jittering. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+/* ---- Layout helpers ------------------------------------------------------ */
+
+/* Columns: a horizontal snap scroller on small screens, a grid on large. */
+.board-columns {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(18rem, 1fr);
+  gap: 1rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: 1rem;
+  padding-bottom: 0.5rem;
+}
+@media (min-width: 1024px) {
+  .board-columns {
+    grid-auto-columns: minmax(16rem, 1fr);
+    scroll-snap-type: none;
+  }
+}
+.board-columns > * {
+  scroll-snap-align: start;
+}
+
+/* Board code in large type. */
+.code-display {
+  font-family: var(--font-mono);
+  letter-spacing: 0.25em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------ */
+/* Motion                                                              */
+/* ------------------------------------------------------------------ */
+
+/* Tokens. Durations and easings are never written as literals in components. */
+:root {
+  --duration-fast: 100ms;
+  --duration-base: 200ms;
+  --duration-slow: 350ms;
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+  /* --ease-spring-snappy / --ease-spring-bouncy are installed by lib/motion.ts */
+}
+
+/* The preference (Preferences → Motion). One attribute on <html> turns every
+   CSS transition and animation into a cut; the JS helpers check the same flag. */
+html[data-motion="off"] *,
+html[data-motion="off"] *::before,
+html[data-motion="off"] *::after {
+  transition-duration: 0s !important;
+  transition-delay: 0s !important;
+  animation-duration: 0s !important;
+  animation-delay: 0s !important;
+}
+
+/* The OS setting is a hard override, independent of the preference. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0s !important;
+    transition-delay: 0s !important;
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
+/* ---- View transitions -------------------------------------------------- */
+
+/* `withViewTransition()` puts its type on <html data-vt> for the life of the
+   transition, so each element is only snapshotted separately when its own
+   transition is running. The root snapshot never animates: everything that
+   should move has a name. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* Page changes: the old page lifts out, the new one settles in. The header
+   stays put (it is outside .page). */
+html[data-vt="page"] .page {
+  view-transition-name: page;
+}
+::view-transition-old(page) {
+  animation: page-out var(--duration-base) var(--ease-standard) both;
+}
+::view-transition-new(page) {
+  animation: page-in var(--duration-slow) var(--ease-emphasized) both;
+}
+@keyframes page-out {
+  to {
+    opacity: 0;
+    translate: 0 -12px;
+  }
+}
+@keyframes page-in {
+  from {
+    opacity: 0;
+    translate: 0 12px;
+  }
+}
+
+/* Phase changes: the columns crossfade on their own snapshot and the
+   stepper's active marker morphs to the new step. The rest of the page holds. */
+html[data-vt="phase"] .board-columns {
+  view-transition-name: board-columns;
+}
+html[data-vt="phase"] .phase-active {
+  view-transition-name: phase-active;
+}
+::view-transition-old(board-columns),
+::view-transition-new(board-columns) {
+  animation-duration: var(--duration-slow);
+  animation-timing-function: var(--ease-emphasized);
+}
+::view-transition-group(phase-active) {
+  animation-duration: var(--duration-slow);
+  animation-timing-function: var(--ease-emphasized);
+}
+
+/* Theme changes: the whole page is one snapshot; the new one fades in. */
+html[data-vt="theme"]::view-transition-new(root) {
+  animation: theme-fade var(--duration-base) var(--ease-standard) both;
+}
+@keyframes theme-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* The sun/moon icon swaps with a small turn (React re-keys it). */
+.theme-icon {
+  animation: theme-icon-in var(--duration-base) var(--ease-emphasized) both;
+}
+@keyframes theme-icon-in {
+  from {
+    opacity: 0;
+    rotate: -90deg;
+    scale: 0.6;
+  }
+}
+
+/* ---- Entrances ---------------------------------------------------------- */
+
+/* Panels and cards enter in sequence; `--i` is set inline per item. The
+   transition only covers these two properties so the delay cannot leak into
+   hover states. */
+.stagger-in {
+  opacity: 1;
+  translate: 0 0;
+  transition:
+    opacity var(--duration-slow) var(--ease-emphasized),
+    translate var(--duration-slow) var(--ease-emphasized);
+  transition-delay: calc(var(--i, 0) * 50ms);
+}
+@starting-style {
+  .stagger-in {
+    opacity: 0;
+    translate: 0 10px;
+  }
+}
+
+/* A retro card arriving, yours or anyone's. Also covers the blur reveal:
+   `filter` and `opacity` transition when the Write phase ends. */
+.retro-card {
+  opacity: 1;
+  translate: 0 0;
+  transition-property:
+    opacity, translate, filter, border-color, background-color, box-shadow;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-emphasized);
+}
+@starting-style {
+  .retro-card {
+    opacity: 0;
+    translate: 0 -8px;
+  }
+}
+.card-text {
+  transition: filter var(--duration-slow) var(--ease-emphasized);
+}
+.retro-card[data-blurred="true"] .card-text {
+  filter: blur(6px);
+  user-select: none;
+}
+
+/* Press feedback on anything interactive. */
+.press {
+  transition-property: scale, color, background-color, border-color, opacity;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-standard);
+}
+.press:active {
+  scale: 0.96;
+}
+
+/* A vote landing: the dot pops on a baked spring. */
+.vote-pop {
+  animation: vote-pop var(--ease-spring-bouncy-duration, 600ms)
+    var(--ease-spring-bouncy, var(--ease-emphasized)) both;
+}
+@keyframes vote-pop {
+  from {
+    scale: 0.5;
+  }
+  to {
+    scale: 1;
+  }
+}
+
+/* Counts pop when they change (React re-keys the span). */
+.count {
+  display: inline-block;
+  animation: count-pop var(--duration-base) var(--ease-emphasized) both;
+}
+@keyframes count-pop {
+  from {
+    scale: 1.25;
+  }
+  to {
+    scale: 1;
+  }
+}
+
+/* Presence avatars slide in; leaving ones dim rather than vanish. */
+.presence-avatar {
+  opacity: 1;
+  translate: 0 0;
+  transition:
+    opacity var(--duration-base) var(--ease-emphasized),
+    translate var(--duration-base) var(--ease-emphasized);
+}
+@starting-style {
+  .presence-avatar {
+    opacity: 0;
+    translate: -6px 0;
+  }
+}
+.presence-avatar[data-online="false"] {
+  opacity: 0.35;
+}
+
+/* ---- Drag and drop ------------------------------------------------------ */
+
+/* The dragged card follows the pointer with a transform only; the drop
+   targets outline themselves. FLIP (useFlip) settles everything after. */
+.retro-card[data-dragging="true"] {
+  translate: var(--dx, 0px) var(--dy, 0px);
+  scale: 1.03;
+  z-index: 20;
+  position: relative;
+  pointer-events: none;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.25);
+  transition-property: scale, box-shadow;
+}
+.drop-target {
+  transition:
+    outline-color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard);
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+.drop-target[data-drop="group"] {
+  outline-color: var(--ring);
+}
+.drop-target[data-drop="move"] {
+  background-color: color-mix(in oklch, var(--accent), transparent 40%);
+}
+
+/* ---- Timer ring --------------------------------------------------------- */
+
+.timer-ring circle {
+  transition: stroke-dashoffset 1s linear;
+}
+.timer-done {
+  animation: timer-done var(--duration-slow) var(--ease-emphasized) 3;
+}
+@keyframes timer-done {
+  50% {
+    scale: 1.08;
+  }
+}
+
+/* ---- Toast -------------------------------------------------------------- */
+
+/* Enter and exit from display:none without JavaScript. */
+.toast {
+  position: fixed;
+  inset-inline: 0;
+  bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  margin-inline: auto;
+  width: min(calc(100% - 2rem), 26rem);
+  display: none;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0.75rem 0.625rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.35);
+  z-index: 60;
+  opacity: 0;
+  translate: 0 12px;
+  transition:
+    opacity var(--duration-base) var(--ease-emphasized),
+    translate var(--duration-base) var(--ease-emphasized),
+    display var(--duration-base) allow-discrete;
+}
+.toast.open {
+  display: flex;
+  opacity: 1;
+  translate: 0 0;
+}
+@starting-style {
+  .toast.open {
+    opacity: 0;
+    translate: 0 12px;
+  }
+}
+
+/* ---- Banner (reconnecting) --------------------------------------------- */
+
+.banner {
+  display: none;
+  opacity: 0;
+  translate: 0 -8px;
+  transition:
+    opacity var(--duration-base) var(--ease-emphasized),
+    translate var(--duration-base) var(--ease-emphasized),
+    display var(--duration-base) allow-discrete;
+}
+.banner.open {
+  display: flex;
+  opacity: 1;
+  translate: 0 0;
+}
+@starting-style {
+  .banner.open {
+    opacity: 0;
+    translate: 0 -8px;
+  }
+}

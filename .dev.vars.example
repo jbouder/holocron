@@ -1,0 +1,5 @@
+# Copy to .dev.vars for local development (`npm run dev`). Never committed.
+
+# Shorten every board's lifetime so the daily wipe can be watched in seconds.
+# Leave unset to use the real RESET_TZ / RESET_HOUR schedule from wrangler.jsonc.
+# DEV_BOARD_TTL_SECONDS=60
