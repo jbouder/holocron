@@ -24,19 +24,29 @@ jobs:
   deploy:
     needs: check
     runs-on: ubuntu-latest
-    # Only deploys when the repository has Cloudflare credentials configured
-    # (Settings → Secrets and variables → Actions). Forks without them still
-    # get the checks above.
-    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main'
     environment:
       name: production
+    # Deploys only when the repository has Cloudflare credentials configured
+    # (Settings → Secrets and variables → Actions). Without them every step
+    # below is skipped and the run stays green, so forks get the checks only.
+    env:
+      CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-      - run: bun install --frozen-lockfile
-      - run: bun run build
-      - uses: cloudflare/wrangler-action@v3
+      - if: env.CF_API_TOKEN == ''
+        run: echo "No CLOUDFLARE_API_TOKEN secret; skipping deploy. See docs/self-hosting.md." >> "$GITHUB_STEP_SUMMARY"
+      - if: env.CF_API_TOKEN != ''
+        uses: actions/checkout@v4
+      - if: env.CF_API_TOKEN != ''
+        uses: oven-sh/setup-bun@v2
+      - if: env.CF_API_TOKEN != ''
+        run: bun install --frozen-lockfile
+      - if: env.CF_API_TOKEN != ''
+        run: bun run build
+      - if: env.CF_API_TOKEN != ''
+        uses: cloudflare/wrangler-action@v3
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          apiToken: ${{ env.CF_API_TOKEN }}
+          accountId: ${{ env.CF_ACCOUNT_ID }}
           command: deploy
