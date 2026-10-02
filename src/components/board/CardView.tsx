@@ -7,7 +7,11 @@ import {
   StackSimpleIcon,
   TrashIcon,
 } from '@phosphor-icons/react';
-import { useRef, useState } from 'react';
+import {
+  type PointerEvent as ReactPointerEvent,
+  useRef,
+  useState,
+} from 'react';
 import { LIMITS } from '#shared/limits';
 import type { Op, You } from '#shared/protocol';
 import { votesUsed } from '#shared/reducer';
@@ -30,6 +34,9 @@ import type { useCardDrag } from '@/hooks/useCardDrag';
 import { animateOut } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import { useMotion } from '@/providers/MotionProvider';
+
+const DOUBLE_TAP_MS = 300;
+const DOUBLE_TAP_SLOP = 24;
 
 interface CardViewProps {
   card: Card;
@@ -65,6 +72,35 @@ export function CardView({
     board.votes.find((v) => v.cardId === card.id && v.participantId === you.id)
       ?.count ?? 0;
   const votesLeft = board.settings.votesPerPerson - votesUsed(board, you.id);
+  const canInlineEdit = canEdit && !blurred;
+  const lastTap = useRef({ time: 0, x: 0, y: 0 });
+
+  function startEdit() {
+    if (ref.current?.dataset.dragging) {
+      return;
+    }
+    setDraft(card.text);
+    setEditing(true);
+  }
+
+  /** Touch has no reliable dblclick, so detect a double-tap by hand. */
+  function onTextPointerUp(event: ReactPointerEvent) {
+    if (event.pointerType !== 'touch') {
+      return;
+    }
+    const prev = lastTap.current;
+    const now = event.timeStamp;
+    const near =
+      Math.hypot(event.clientX - prev.x, event.clientY - prev.y) <
+      DOUBLE_TAP_SLOP;
+    if (now - prev.time < DOUBLE_TAP_MS && near) {
+      lastTap.current = { time: 0, x: 0, y: 0 };
+      event.preventDefault();
+      startEdit();
+    } else {
+      lastTap.current = { time: now, x: event.clientX, y: event.clientY };
+    }
+  }
 
   async function remove() {
     if (ref.current) {
@@ -115,6 +151,10 @@ export function CardView({
             value={draft}
             rows={3}
             maxLength={LIMITS.cardTextMax}
+            onFocus={(e) => {
+              const end = e.currentTarget.value.length;
+              e.currentTarget.setSelectionRange(end, end);
+            }}
             onChange={(e) => setDraft(e.target.value)}
             onBlur={commitEdit}
             onKeyDown={(e) => {
@@ -129,7 +169,24 @@ export function CardView({
             className="min-h-0 flex-1 resize-none"
           />
         ) : (
-          <p className="card-text min-w-0 flex-1 whitespace-pre-wrap break-words leading-relaxed">
+          <p
+            className={cn(
+              'card-text min-w-0 flex-1 whitespace-pre-wrap break-words leading-relaxed',
+              canInlineEdit && 'touch-manipulation',
+            )}
+            onMouseDown={
+              canInlineEdit
+                ? (e) => {
+                    // Stop the second click selecting a word before the editor opens.
+                    if (e.detail > 1) {
+                      e.preventDefault();
+                    }
+                  }
+                : undefined
+            }
+            onDoubleClick={canInlineEdit ? startEdit : undefined}
+            onPointerUp={canInlineEdit ? onTextPointerUp : undefined}
+          >
             {card.text}
           </p>
         )}
@@ -150,12 +207,7 @@ export function CardView({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               {mine && (
-                <DropdownMenuItem
-                  onClick={() => {
-                    setDraft(card.text);
-                    setEditing(true);
-                  }}
-                >
+                <DropdownMenuItem onClick={startEdit}>
                   <PencilSimpleIcon />
                   Edit
                 </DropdownMenuItem>
