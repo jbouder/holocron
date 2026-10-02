@@ -24,7 +24,7 @@ jobs:
     name: check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
       - uses: actions/cache@v4
         with:
@@ -58,7 +58,7 @@ jobs:
       - if: env.CF_API_TOKEN == ''
         run: echo "No CLOUDFLARE_API_TOKEN secret; skipping deploy. See docs/self-hosting.md." >> "$GITHUB_STEP_SUMMARY"
       - if: env.CF_API_TOKEN != ''
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - if: env.CF_API_TOKEN != ''
         uses: oven-sh/setup-bun@v2
       - if: env.CF_API_TOKEN != ''
