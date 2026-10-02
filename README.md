@@ -8,9 +8,6 @@ voting, drag-to-group, a shared timer, action items, Markdown export. Export
 what you want to keep; the board itself is **erased from the archives, every
 morning** (6:00 AM Eastern by default).
 
-Named after the Jedi archive that stores lessons for those who come after.
-This one keeps nothing past dawn.
-
 Runs entirely on Cloudflare: one Worker serves the app, and each board is a
 SQLite-backed Durable Object that holds the data, pushes live updates over
 WebSockets, and wipes itself on an alarm.
