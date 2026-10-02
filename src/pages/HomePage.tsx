@@ -2,8 +2,9 @@ import { ArrowRightIcon, CrownSimpleIcon, XIcon } from '@phosphor-icons/react';
 import { type FormEvent, useEffect, useState } from 'react';
 import { CODE_LENGTH, isValidCode, normalizeCode } from '#shared/codes';
 import { LIMITS } from '#shared/limits';
-import type { AppConfig } from '#shared/protocol';
+import { type AppConfig, TURNSTILE_ACTION } from '#shared/protocol';
 import { DEFAULT_TEMPLATE_ID, TEMPLATES } from '#shared/templates';
+import { Turnstile } from '@/components/Turnstile';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -53,7 +54,7 @@ export function HomePage() {
       </section>
 
       <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
-        <CreatePanel />
+        <CreatePanel turnstileSiteKey={config?.turnstileSiteKey ?? null} />
         <div className="flex flex-col gap-6">
           <JoinPanel />
           <RecentPanel />
@@ -63,9 +64,17 @@ export function HomePage() {
   );
 }
 
-function CreatePanel() {
+function CreatePanel({
+  turnstileSiteKey,
+}: {
+  turnstileSiteKey: string | null;
+}) {
   const identity = useIdentity();
   const toast = useToast();
+  const [humanToken, setHumanToken] = useState<string | null>(null);
+  // Bumped to remount the widget: each token is good for one request.
+  const [humanCheck, setHumanCheck] = useState(0);
+  const needsHuman = turnstileSiteKey !== null && humanToken === null;
   const [name, setName] = useState(identity.name);
   const [title, setTitle] = useState('');
   const [templateId, setTemplateId] = useState(DEFAULT_TEMPLATE_ID);
@@ -80,7 +89,7 @@ function CreatePanel() {
   async function submit(event: FormEvent) {
     event.preventDefault();
     const trimmed = name.trim();
-    if (!trimmed || busy) {
+    if (!trimmed || busy || needsHuman) {
       return;
     }
     setBusy(true);
@@ -91,6 +100,7 @@ function CreatePanel() {
         templateId,
         participantId: identity.id,
         name: trimmed,
+        turnstileToken: humanToken ?? undefined,
       });
       setOwnerToken(created.code, created.ownerToken);
       rememberBoard({
@@ -110,6 +120,10 @@ function CreatePanel() {
           : 'Could not create the board',
       );
       setBusy(false);
+      if (turnstileSiteKey) {
+        setHumanToken(null);
+        setHumanCheck((n) => n + 1);
+      }
     }
   }
 
@@ -205,11 +219,26 @@ function CreatePanel() {
             </div>
           </fieldset>
 
-          <div className="flex items-center justify-end gap-3">
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            {turnstileSiteKey && (
+              <div className="mr-auto">
+                <Turnstile
+                  key={humanCheck}
+                  siteKey={turnstileSiteKey}
+                  action={TURNSTILE_ACTION}
+                  onToken={setHumanToken}
+                  onError={() =>
+                    toast.show(
+                      'The human check could not load. Reload and try again.',
+                    )
+                  }
+                />
+              </div>
+            )}
             <Button
               type="submit"
               size="lg"
-              disabled={busy || !name.trim()}
+              disabled={busy || !name.trim() || needsHuman}
               className="press"
             >
               {busy ? 'Creating…' : 'Create board'}

@@ -60,6 +60,11 @@ WebSockets, and wipes itself on an alarm.
   readable by anyone who has the code. **Do not put secrets on a retro board.**
 - The server keeps no accounts and no analytics. Request logs follow your
   Cloudflare account's Workers observability settings.
+- Optional, off by default: a deployment can require a Cloudflare Turnstile
+  check to create a board. Turnstile is a Cloudflare service; when it is on,
+  the home page loads its script and the creator's browser is checked by
+  Cloudflare. Joining a board never involves it. See
+  [docs/self-hosting.md](docs/self-hosting.md).
 - The browser stores: a random participant id, your display name, owner tokens
   for boards you created, theme and motion preferences, and a list of recent
   boards (pruned as they expire). All under `localStorage` keys prefixed
@@ -100,10 +105,6 @@ npm run deploy       # build + wrangler deploy
 
 Copy `.dev.vars.example` to `.dev.vars` and set `DEV_BOARD_TTL_SECONDS=60` to
 watch a board expire during development.
-
-## Roadmap
-
-- Turnstile on board creation if abuse shows up.
 
 ## License
 

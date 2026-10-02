@@ -24,7 +24,19 @@
 - theme and motion preferences
 - recent boards (code, title, expiry), pruned as they expire
 
-Nothing else. No cookies, no accounts, no third-party scripts, no analytics.
+Nothing else. No cookies, no accounts, no analytics, and no third-party
+scripts unless the deployment turned on Turnstile (below).
+
+**Turnstile, if enabled.** A deployment can require a
+[Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/) check
+before a board is created (off by default; see
+[self-hosting.md](self-hosting.md)). When it is on, the home page loads
+Turnstile's script from `challenges.cloudflare.com`, which collects signals
+from the browser to tell people from bots, and the Worker sends the resulting
+token and the client IP to Cloudflare's Siteverify API. Holocron stores
+nothing from it. Cloudflare's handling is described in its
+[Turnstile privacy addendum](https://www.cloudflare.com/turnstile-privacy-policy/).
+Joining a board never involves Turnstile.
 
 ## How long
 

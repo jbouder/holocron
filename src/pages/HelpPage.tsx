@@ -56,7 +56,8 @@ export function HelpPage() {
             <span className="code-display">K7MXQ2</span>. Share the code or the
             link, or let people in the room scan the QR code in the Share
             dialog; whoever opens it is on the board. There are no invitations
-            and no passwords.
+            and no passwords. Some sites ask for a quick human check (Cloudflare
+            Turnstile) before the Create button works; joining never does.
           </p>
           <p>
             Templates set the starting columns. The owner can add, rename and

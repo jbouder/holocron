@@ -5,6 +5,7 @@ import type { AppConfig, CreateBoardResponse } from '#shared/protocol';
 import { formatResetTime, nextResetAt } from '#shared/reset-time';
 import { DEFAULT_TEMPLATE_ID } from '#shared/templates';
 import type { Bindings } from './env';
+import { turnstileSiteKey, verifyTurnstile } from './turnstile';
 
 export { BoardObject } from './board';
 
@@ -19,6 +20,8 @@ const CreateSchema = z.object({
   templateId: z.string().max(40).default(DEFAULT_TEMPLATE_ID),
   participantId: z.string().min(1).max(64),
   name: z.string().trim().min(1).max(LIMITS.nameMax),
+  /** Only checked when Turnstile is configured (see ./turnstile.ts). */
+  turnstileToken: z.string().optional(),
 });
 
 const CODE_ATTEMPTS = 5;
@@ -38,6 +41,7 @@ export default {
           resetTimeZone: env.RESET_TZ,
           resetHour: Number(env.RESET_HOUR) || 6,
           resetLabel: formatResetTime(expiryFor(Date.now(), env), env.RESET_TZ),
+          turnstileSiteKey: turnstileSiteKey(env),
         };
         return json(config);
       }
@@ -152,6 +156,13 @@ async function createBoard(request: Request, env: Bindings): Promise<Response> {
     );
   }
   const input = parsed.data;
+
+  if (turnstileSiteKey(env)) {
+    const check = await verifyTurnstile(input.turnstileToken, request, env);
+    if (!check.ok) {
+      return json({ error: check.error }, check.status);
+    }
+  }
 
   const now = Date.now();
   const expiresAt = expiryFor(now, env);
