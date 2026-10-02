@@ -14,9 +14,8 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "baseUrl": "..",
     "paths": {
-      "#shared/*": ["./shared/*"]
+      "#shared/*": ["../shared/*"]
     },
     "types": ["@cloudflare/vitest-plugin/types"]
   },
