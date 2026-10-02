@@ -5,7 +5,7 @@ import { linkProps } from '@/lib/router';
 const COPY = {
   expired: {
     title: 'This board has expired',
-    body: 'Boards are wiped every morning. Everything on it is gone, which is the point.',
+    body: 'Erased from the archives, every morning. Everything on it is gone, which is the point.',
   },
   deleted: {
     title: 'This board was deleted',

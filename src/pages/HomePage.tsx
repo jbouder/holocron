@@ -41,15 +41,17 @@ export function HomePage() {
         style={{ '--i': 0 } as React.CSSProperties}
       >
         <h1 className="font-heading text-4xl font-semibold tracking-tight sm:text-5xl">
-          Retro boards that are gone by morning.
+          The retro board that doesn't keep your retros.
         </h1>
         <p className="mt-4 text-pretty text-base text-muted-foreground sm:text-lg">
-          Create a board, share the six-letter code, and run the retro together:
-          write, vote, discuss, decide. Every board is wiped at{' '}
+          No accounts, no history, no archive. Create a board, share the
+          six-character code, and run the retro together: write, vote, discuss,
+          decide. Export what matters. The board itself is erased from the
+          archives every morning, at{' '}
           <span className="text-foreground">
             {config?.resetLabel ?? '6:00 AM ET'}
-          </span>{' '}
-          each day. Export what matters before then.
+          </span>
+          .
         </p>
       </section>
 

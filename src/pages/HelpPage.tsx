@@ -20,8 +20,9 @@ export function HelpPage() {
           How Holocron works
         </h1>
         <p className="mt-2 text-muted-foreground">
-          A retro board for one session. No accounts, no history: create, share
-          the code, run the retro, export, done.
+          The retro board that doesn't keep your retros. No accounts, no
+          history: create, share the code, run the retro, export, done. The
+          board is erased from the archives every morning.
         </p>
       </div>
 
