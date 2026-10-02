@@ -17,7 +17,7 @@ WebSockets, and wipes itself on an alarm.
 ## Features
 
 - **Boards and codes.** Anyone can create a board. The six-character code (or
-  the link) is the only invitation. Six templates: Went well / To improve,
+  the link, or the QR code in the share dialog) is the only invitation. Six templates: Went well / To improve,
   Start / Stop / Continue, Mad / Sad / Glad, 4Ls, Dagobah, Blank. Columns are
   editable afterwards.
 - **Phases.** A stepper moves everyone at once. In *Write*, other people's
@@ -97,7 +97,7 @@ watch a board expire during development.
 ## Roadmap
 
 - A few selectable themes beyond light/dark, including some fun ones.
-- QR code in the share dialog, reactions, card comments.
+- Reactions, card comments.
 - Turnstile on board creation if abuse shows up.
 
 ## License

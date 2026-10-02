@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { pathFor } from '@/lib/router';
+import { QrCode } from './QrCode';
 
 export function ShareDialog({
   open,
@@ -29,7 +30,8 @@ export function ShareDialog({
         <DialogHeader>
           <DialogTitle>Share this board</DialogTitle>
           <DialogDescription>
-            Anyone with the code can join. Read it out, or send the link.
+            Anyone with the code can join. Read it out, send the link, or scan
+            the QR code with a phone.
           </DialogDescription>
         </DialogHeader>
         <p className="code-display my-2 text-center text-4xl font-semibold tracking-[0.35em]">
@@ -50,6 +52,11 @@ export function ShareDialog({
         <p className="truncate text-center text-xs text-muted-foreground">
           {link}
         </p>
+        <QrCode
+          value={link}
+          label={`QR code for board ${code}`}
+          className="mx-auto size-48 rounded-sm"
+        />
       </DialogContent>
     </Dialog>
   );

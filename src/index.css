@@ -211,6 +211,13 @@
   scroll-snap-align: start;
 }
 
+/* QR codes stay dark-on-light in every theme so phones can scan them.
+ * Themes must not override these. */
+:root {
+  --qr-dark: oklch(0 0 0);
+  --qr-light: oklch(1 0 0);
+}
+
 /* Board code in large type. */
 .code-display {
   font-family: var(--font-mono);
