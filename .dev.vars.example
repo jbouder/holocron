@@ -3,3 +3,8 @@
 # Shorten every board's lifetime so the daily wipe can be watched in seconds.
 # Leave unset to use the real RESET_TZ / RESET_HOUR schedule from wrangler.jsonc.
 # DEV_BOARD_TTL_SECONDS=60
+
+# Try the optional Turnstile check locally with Cloudflare's public test keys
+# (they always pass). Values here override the wrangler.jsonc vars in dev.
+# TURNSTILE_SITE_KEY=1x00000000000000000000AA
+# TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA

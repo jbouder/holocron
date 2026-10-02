@@ -32,7 +32,12 @@
   // RESET_HOUR is 0–23 in RESET_TZ (an IANA time zone name).
   "vars": {
     "RESET_TZ": "America/New_York",
-    "RESET_HOUR": "6"
+    "RESET_HOUR": "6",
+    // Optional Turnstile check on board creation. Off while empty. To turn
+    // it on, put the widget's site key here and its secret in a Worker
+    // secret: `npx wrangler secret put TURNSTILE_SECRET_KEY`. See
+    // docs/self-hosting.md.
+    "TURNSTILE_SITE_KEY": ""
   },
 
   "observability": { "enabled": true }
