@@ -125,9 +125,22 @@ export function HelpPage() {
             anonymous cards for the board.
           </p>
           <p>
-            You can edit and delete your own cards from the menu on the card.
-            The owner can delete any card. Cards are up to {LIMITS.cardTextMax}{' '}
-            characters.
+            To change a card you wrote, use the <Kbd>⋯</Kbd> button at its top
+            right. It is faint until you hover the card (on touch screens it is
+            always shown). Choose Edit, change the text, then press{' '}
+            <Kbd>Enter</Kbd> to save, <Kbd>Shift</Kbd>+<Kbd>Enter</Kbd> for a
+            new line, or <Kbd>Esc</Kbd> to cancel. Double-clicking (or
+            double-tapping) the card's text opens the same editor. Delete is in
+            the same menu. Cards are up to {LIMITS.cardTextMax} characters.
+          </p>
+          <p>
+            Edit only appears on cards you wrote in this browser. Your identity
+            is per browser (see{' '}
+            <a href="#name" className="underline underline-offset-4">
+              Your name
+            </a>
+            ), so cards you posted from another device show no Edit here. The
+            owner can delete any card.
           </p>
         </Section>
 
@@ -209,6 +222,12 @@ export function HelpPage() {
             </li>
             <li>
               <Kbd>Shift</Kbd>+<Kbd>Enter</Kbd> new line in a card
+            </li>
+            <li>
+              <Kbd>Enter</Kbd> save a card you are editing
+            </li>
+            <li>
+              <Kbd>Shift</Kbd>+<Kbd>Enter</Kbd> new line while editing
             </li>
             <li>
               <Kbd>Esc</Kbd> cancel an edit
