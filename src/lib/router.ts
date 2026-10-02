@@ -7,11 +7,13 @@ import { isValidCode, normalizeCode } from '#shared/codes';
  * so navigation animates as a page transition.
  */
 
+export type GoneReason = 'expired' | 'deleted' | 'missing' | 'refused';
+
 export type Route =
   | { name: 'home' }
   | { name: 'board'; code: string }
   | { name: 'help' }
-  | { name: 'gone'; reason: 'expired' | 'deleted' | 'missing'; code?: string };
+  | { name: 'gone'; reason: GoneReason; code?: string };
 
 export function parse(pathname: string): Route {
   const clean = pathname.length > 1 ? pathname.replace(/\/$/, '') : pathname;
@@ -75,10 +77,7 @@ export function navigate(route: Route, options: { replace?: boolean } = {}) {
 }
 
 /** Show the "gone" page for the current board without changing the URL. */
-export function markGone(
-  reason: 'expired' | 'deleted' | 'missing',
-  code?: string,
-) {
+export function markGone(reason: GoneReason, code?: string) {
   commit({ name: 'gone', reason, code });
 }
 

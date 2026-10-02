@@ -5,10 +5,18 @@ import {
   type BoardMeta,
   ClientMessageSchema,
   type Op,
+  type OpActor,
   type ServerMessage,
   type You,
 } from '#shared/protocol';
-import { createBoard, OpError, reduce, upgradeBoard } from '#shared/reducer';
+import {
+  anonymousIdsFor,
+  createBoard,
+  OpError,
+  redactAnonymous,
+  reduce,
+  upgradeBoard,
+} from '#shared/reducer';
 import type { Actor, Board } from '#shared/types';
 import type { Bindings } from './env';
 
@@ -41,10 +49,19 @@ export interface CreateInput {
   expiresAt: number;
 }
 
+/** Storage key (KV side of the same SQLite) for the participant bindings. */
+const SECRETS_KEY = 'participantSecrets';
+
 export class BoardObject extends DurableObject<Bindings> {
   private board: Board | null = null;
   private seq = 0;
   private ownerHash: string | null = null;
+  /**
+   * Participant id → SHA-256 of the browser secret that first used it. A
+   * later socket with that id and another secret is refused, so nobody can
+   * act (or read `you`) as someone else. Never sent to clients.
+   */
+  private secrets: Record<string, string> = {};
   /** Per-socket timestamps of recent ops, for the flood limit. */
   private recent = new WeakMap<WebSocket, number[]>();
 
@@ -52,6 +69,10 @@ export class BoardObject extends DurableObject<Bindings> {
     super(ctx, env);
     ctx.blockConcurrencyWhile(async () => {
       this.load();
+      if (this.board) {
+        this.secrets =
+          (await ctx.storage.get<Record<string, string>>(SECRETS_KEY)) ?? {};
+      }
       // Keep-alives answered by the runtime without waking the object.
       this.ctx.setWebSocketAutoResponse(
         new WebSocketRequestResponsePair('ping', 'pong'),
@@ -73,7 +94,16 @@ export class BoardObject extends DurableObject<Bindings> {
   }
 
   private load() {
-    this.ensureTable();
+    // Only `create()` makes the table. Probing a code that was never created
+    // (or has been wiped) must leave this object's storage empty.
+    const exists = this.ctx.storage.sql
+      .exec(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'board'",
+      )
+      .toArray().length;
+    if (!exists) {
+      return;
+    }
     const row = this.ctx.storage.sql
       .exec<Row>('SELECT json, seq, owner_hash FROM board WHERE id = 1')
       .toArray()[0];
@@ -119,6 +149,7 @@ export class BoardObject extends DurableObject<Bindings> {
     this.board = null;
     this.seq = 0;
     this.ownerHash = null;
+    this.secrets = {};
     await this.ctx.storage.deleteAlarm();
     await this.ctx.storage.deleteAll();
   }
@@ -151,6 +182,7 @@ export class BoardObject extends DurableObject<Bindings> {
       expiresAt: input.expiresAt,
     });
     this.seq = 0;
+    this.secrets = {};
     this.persist();
     await this.ctx.storage.setAlarm(input.expiresAt);
     return token;
@@ -201,12 +233,15 @@ export class BoardObject extends DurableObject<Bindings> {
     }
     const url = new URL(request.url);
     const id = (url.searchParams.get('pid') ?? '').slice(0, 64);
+    const secret = url.searchParams.get('secret') ?? '';
     const name = (url.searchParams.get('name') ?? '')
       .trim()
       .slice(0, LIMITS.nameMax);
     const token = url.searchParams.get('token');
-    if (!id || !name) {
-      return new Response('Missing participant id or name', { status: 400 });
+    if (!id || !name || !secret || secret.length > 128) {
+      return new Response('Missing participant id, secret or name', {
+        status: 400,
+      });
     }
     const isOwner =
       token !== null &&
@@ -218,6 +253,18 @@ export class BoardObject extends DurableObject<Bindings> {
     const attachment: Attachment = { id, name, isOwner };
     server.serializeAttachment(attachment);
     this.ctx.acceptWebSocket(server);
+
+    // Bind the id to this browser's secret, or refuse an impostor. The
+    // close reason is what the client keys on; it never retries this.
+    const secretHash = await sha256(secret);
+    const bound = this.secrets[id];
+    if (bound === undefined) {
+      this.secrets[id] = secretHash;
+      await this.ctx.storage.put(SECRETS_KEY, this.secrets);
+    } else if (bound !== secretHash) {
+      server.close(1008, 'identity');
+      return new Response(null, { status: 101, webSocket: client });
+    }
 
     // Make sure the participant exists with this name. Going through the
     // reducer persists it and tells everyone else.
@@ -246,7 +293,7 @@ export class BoardObject extends DurableObject<Bindings> {
       ws.close(1000, 'expired');
       return;
     }
-    if (typeof raw !== 'string' || !this.allow(ws)) {
+    if (typeof raw !== 'string') {
       return;
     }
     const attachment = ws.deserializeAttachment() as Attachment;
@@ -263,6 +310,19 @@ export class BoardObject extends DurableObject<Bindings> {
       return;
     }
     const message = result.data;
+
+    if (!this.allow(ws)) {
+      // Refuse rather than drop, so the sender's optimistic copy is rolled
+      // back instead of lingering until the next reconnect.
+      if (message.type === 'op') {
+        this.send(ws, {
+          type: 'rejected',
+          opId: message.opId,
+          reason: 'Too many changes at once. Try that again.',
+        });
+      }
+      return;
+    }
 
     if (message.type === 'sync') {
       this.sendSnapshot(ws, actor);
@@ -328,24 +388,72 @@ export class BoardObject extends DurableObject<Bindings> {
     if (!this.board) {
       throw new OpError('This board has expired');
     }
+    // Decided before the reduce, while a deleted card is still there.
+    const secret = this.anonymousTarget(this.board, op, actor);
     const at = Date.now();
     const next = reduce(this.board, op, actor, at);
     this.board = next;
     this.seq += 1;
     this.persist();
-    const message: ServerMessage = {
-      type: 'op',
-      seq: this.seq,
-      op,
-      opId,
-      actor: { id: actor.id, name: actor.name },
-      at,
-    };
+
+    // The author's own sockets learn which anonymous item is theirs; every
+    // other socket gets an echo that names no one.
+    const own: OpActor = { id: actor.id, name: actor.name, ...secret };
+    const others: OpActor = secret
+      ? { id: '', name: '', ...secret }
+      : { id: actor.id, name: actor.name };
     const skip = new Set(except);
     for (const ws of this.ctx.getWebSockets()) {
-      if (!skip.has(ws)) {
-        this.send(ws, message);
+      if (skip.has(ws)) {
+        continue;
       }
+      const to = ws.deserializeAttachment() as Attachment | null;
+      const visible = to?.id === actor.id ? own : others;
+      this.send(ws, {
+        type: 'op',
+        seq: this.seq,
+        op,
+        opId,
+        actor: visible,
+        at,
+      });
+    }
+  }
+
+  /**
+   * If `op` is an anonymous author acting on their own anonymous card or
+   * comment, the item that must stand in for them on the echo; else null.
+   * Votes and reactions are by participant and public, so they never hide.
+   */
+  private anonymousTarget(
+    board: Board,
+    op: Op,
+    actor: Actor,
+  ): Pick<OpActor, 'anonymousCardIds' | 'anonymousCommentIds'> | null {
+    switch (op.type) {
+      case 'addCard':
+        return op.anonymous ? { anonymousCardIds: [op.id] } : null;
+      case 'editCard':
+      case 'deleteCard':
+      case 'moveCard':
+      case 'groupCards':
+      case 'ungroupCard': {
+        const card = board.cards.find((c) => c.id === op.id);
+        return card?.anonymous && card.authorId === actor.id
+          ? { anonymousCardIds: [card.id] }
+          : null;
+      }
+      case 'addComment':
+        return op.anonymous ? { anonymousCommentIds: [op.id] } : null;
+      case 'editComment':
+      case 'deleteComment': {
+        const comment = board.comments.find((c) => c.id === op.id);
+        return comment?.anonymous && comment.authorId === actor.id
+          ? { anonymousCommentIds: [comment.id] }
+          : null;
+      }
+      default:
+        return null;
     }
   }
 
@@ -369,8 +477,15 @@ export class BoardObject extends DurableObject<Bindings> {
     if (!this.board) {
       return;
     }
-    const board = this.withPresence(this.board);
-    const you: You = { id: actor.id, name: actor.name, isOwner: actor.isOwner };
+    // Author ids of anonymous items never leave the object; the recipient's
+    // own are listed in `you` instead.
+    const board = redactAnonymous(this.withPresence(this.board));
+    const you: You = {
+      id: actor.id,
+      name: actor.name,
+      isOwner: actor.isOwner,
+      ...anonymousIdsFor(this.board, actor.id),
+    };
     this.send(ws, { type: 'snapshot', board, seq: this.seq, you });
   }
 

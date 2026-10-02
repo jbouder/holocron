@@ -17,7 +17,8 @@ export const LIMITS = {
   votesPerPersonMin: 1,
   votesPerPersonMax: 20,
   timerMinMs: 60_000,
-  timerMaxMs: 30 * 60_000,
-  /** Ops a single socket may send per second before being dropped. */
+  /** The timer popover offers presets up to this. */
+  timerMaxMs: 15 * 60_000,
+  /** Ops a single socket may send per second before being refused. */
   opsPerSecond: 20,
 } as const;

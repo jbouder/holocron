@@ -8,6 +8,7 @@ import {
   type Comment,
   DEFAULT_SETTINGS,
   type Settings,
+  type Viewer,
 } from './types';
 
 /**
@@ -94,20 +95,46 @@ function findCard(board: Board, id: string): Card {
   return board.cards.find((c) => c.id === id) ?? fail('That card is gone');
 }
 
-/** Edit and delete: the author or the owner. */
-function canEditCard(card: Card, actor: Actor): boolean {
-  return card.authorId === actor.id || actor.isOwner;
+/**
+ * Did this viewer write the card? On the server the document carries the
+ * real author id. On a client, anonymous cards arrive with an empty author
+ * id and the viewer's own are listed in `anonymousCardIds` instead. An empty
+ * id never matches anything, so a redacted actor owns nothing by accident.
+ */
+export function isCardAuthor(card: Card, viewer: Viewer): boolean {
+  if (viewer.id !== '' && card.authorId === viewer.id) {
+    return true;
+  }
+  return (
+    card.anonymous && (viewer.anonymousCardIds?.includes(card.id) ?? false)
+  );
+}
+
+/** Same as `isCardAuthor`, for comments. */
+export function isCommentAuthor(comment: Comment, viewer: Viewer): boolean {
+  if (viewer.id !== '' && comment.authorId === viewer.id) {
+    return true;
+  }
+  return (
+    comment.anonymous &&
+    (viewer.anonymousCommentIds?.includes(comment.id) ?? false)
+  );
+}
+
+/** Delete: the author or the owner. Editing the text is author-only. */
+function canDeleteCard(card: Card, actor: Actor): boolean {
+  return isCardAuthor(card, actor) || actor.isOwner;
 }
 
 /**
  * During Write, with blurring on, only the author can read a card, so only
  * the author can react to it or comment on it. The UI hides both too.
  */
-export function isCardHidden(board: Board, card: Card, viewerId: string) {
+export function isCardHidden(board: Board, card: Card, viewer: Viewer) {
   return (
     board.phase === 'write' &&
     board.settings.blurDuringWrite &&
-    card.authorId !== viewerId
+    !isCardAuthor(card, viewer)
   );
 }
 
@@ -119,7 +146,37 @@ function findComment(board: Board, id: string): Comment {
 
 /** Move, group, ungroup: anyone, unless the owner locked facilitation. */
 function canArrangeCard(board: Board, card: Card, actor: Actor): boolean {
-  return canEditCard(card, actor) || canFacilitate(board, actor);
+  return canDeleteCard(card, actor) || canFacilitate(board, actor);
+}
+
+/**
+ * The board as it may leave the server: anonymous cards and comments lose
+ * their author id. Everything else a client needs to apply ops and render
+ * stays. Run on every snapshot; echoes carry no author ids to begin with.
+ */
+export function redactAnonymous(board: Board): Board {
+  return {
+    ...board,
+    cards: board.cards.map((c) => (c.anonymous ? { ...c, authorId: '' } : c)),
+    comments: board.comments.map((c) =>
+      c.anonymous ? { ...c, authorId: '' } : c,
+    ),
+  };
+}
+
+/** The anonymous cards and comments one participant wrote, for their `you`. */
+export function anonymousIdsFor(
+  board: Board,
+  participantId: string,
+): { anonymousCardIds: string[]; anonymousCommentIds: string[] } {
+  return {
+    anonymousCardIds: board.cards
+      .filter((c) => c.anonymous && c.authorId === participantId)
+      .map((c) => c.id),
+    anonymousCommentIds: board.comments
+      .filter((c) => c.anonymous && c.authorId === participantId)
+      .map((c) => c.id),
+  };
 }
 
 export function votesUsed(board: Board, participantId: string): number {
@@ -162,6 +219,9 @@ function endPosition(board: Board, columnId: string): number {
 
 /** Ensure a participant record exists (names can change). */
 function withParticipant(board: Board, actor: Actor): Board {
+  if (actor.id === '') {
+    return board; // a redacted echo: the author is already seated
+  }
   const existing = board.participants.find((p) => p.id === actor.id);
   if (existing) {
     if (existing.name === actor.name) {
@@ -227,7 +287,7 @@ export function reduce(
 
     case 'editCard': {
       const card = findCard(board, op.id);
-      if (card.authorId !== actor.id && !actor.isOwner) {
+      if (!isCardAuthor(card, actor)) {
         fail('You can only edit your own cards');
       }
       return {
@@ -243,7 +303,7 @@ export function reduce(
       if (!card) {
         return board;
       }
-      if (!canEditCard(card, actor)) {
+      if (!canDeleteCard(card, actor)) {
         fail('You can only delete your own cards');
       }
       return {
@@ -410,7 +470,7 @@ export function reduce(
 
     case 'toggleReaction': {
       const card = findCard(board, op.cardId);
-      if (isCardHidden(board, card, actor.id)) {
+      if (isCardHidden(board, card, actor)) {
         fail('Reactions open when the Write phase ends');
       }
       const mine = (r: Board['reactions'][number]) =>
@@ -440,7 +500,7 @@ export function reduce(
         return board; // duplicate delivery
       }
       const card = findCard(board, op.cardId);
-      if (isCardHidden(board, card, actor.id)) {
+      if (isCardHidden(board, card, actor)) {
         fail('Comments open when the Write phase ends');
       }
       if (op.anonymous && !board.settings.anonymousAllowed) {
@@ -473,7 +533,7 @@ export function reduce(
 
     case 'editComment': {
       const comment = findComment(board, op.id);
-      if (comment.authorId !== actor.id) {
+      if (!isCommentAuthor(comment, actor)) {
         fail('You can only edit your own comments');
       }
       return {
@@ -489,7 +549,7 @@ export function reduce(
       if (!comment) {
         return board;
       }
-      if (comment.authorId !== actor.id && !actor.isOwner) {
+      if (!isCommentAuthor(comment, actor) && !actor.isOwner) {
         fail('You can only delete your own comments');
       }
       return {

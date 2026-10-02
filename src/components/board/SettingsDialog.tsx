@@ -83,7 +83,7 @@ export function SettingsDialog({
           <Row
             id="facilitator"
             label="Only I can facilitate"
-            hint="Phase, timer, columns and moving cards become owner-only."
+            hint="Phase, timer, board title, columns and moving cards become owner-only."
             checked={s.facilitatorOnly}
             onChange={(v) => update({ facilitatorOnly: v })}
           />

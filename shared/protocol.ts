@@ -142,6 +142,22 @@ export interface You {
   id: string;
   name: string;
   isOwner: boolean;
+  /** Anonymous cards and comments this participant wrote (see `Actor`). */
+  anonymousCardIds: string[];
+  anonymousCommentIds: string[];
+}
+
+/**
+ * Who performed a broadcast op. When the op touches an anonymous card or
+ * comment by its own author, everyone but the author receives an empty `id`
+ * and `name`, and the id list names the item instead, so the echo reveals
+ * nothing the document does not.
+ */
+export interface OpActor {
+  id: string;
+  name: string;
+  anonymousCardIds?: string[];
+  anonymousCommentIds?: string[];
 }
 
 /** Server → client. Not validated on the client; the server is trusted. */
@@ -152,7 +168,7 @@ export type ServerMessage =
       seq: number;
       op: Op;
       opId: string;
-      actor: { id: string; name: string };
+      actor: OpActor;
       /** Server clock when the op was applied; pass to `reduce`. */
       at: number;
     }
