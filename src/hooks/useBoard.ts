@@ -19,7 +19,9 @@ export type ConnectionStatus =
   | 'reconnecting'
   | 'expired'
   | 'deleted'
-  | 'missing';
+  | 'missing'
+  /** The board knows our participant id under another browser's secret. */
+  | 'refused';
 
 interface Pending {
   opId: string;
@@ -42,7 +44,7 @@ const PING_MS = 30_000;
 
 export function useBoard(
   code: string,
-  identity: { id: string; name: string },
+  identity: { id: string; secret: string; name: string },
   ownerToken: string | null,
 ): BoardConnection {
   const [status, setStatus] = useState<ConnectionStatus>('connecting');
@@ -66,6 +68,8 @@ export function useBoard(
       id: identity.id,
       name: you?.name ?? identity.name,
       isOwner: you?.isOwner ?? false,
+      anonymousCardIds: you?.anonymousCardIds ?? [],
+      anonymousCommentIds: you?.anonymousCommentIds ?? [],
     }),
     [identity.id, identity.name, you],
   );
@@ -83,9 +87,7 @@ export function useBoard(
       if (cancelled) {
         return;
       }
-      const ws = new WebSocket(
-        socketUrl(code, identity.id, identity.name, ownerToken),
-      );
+      const ws = new WebSocket(socketUrl(code, identity, ownerToken));
       socket.current = ws;
 
       ws.addEventListener('open', () => {
@@ -140,7 +142,11 @@ export function useBoard(
                   {
                     id: by.id,
                     name: by.name,
-                    isOwner: by.id === board.ownerId,
+                    // An anonymous author's echo has an empty id; the lists
+                    // say which item is theirs (see `Actor`).
+                    isOwner: by.id !== '' && by.id === board.ownerId,
+                    anonymousCardIds: by.anonymousCardIds,
+                    anonymousCommentIds: by.anonymousCommentIds,
                   },
                   at,
                 );
@@ -151,8 +157,29 @@ export function useBoard(
               }
             });
             setPending((list) => list.filter((p) => p.opId !== opId));
-            if (op.type === 'setName' && by.id === identity.id) {
-              setYou((me) => (me ? { ...me, name: op.name } : me));
+            if (by.id === identity.id) {
+              // Our own op (possibly from another tab): keep `you` current.
+              if (op.type === 'setName') {
+                setYou((me) => (me ? { ...me, name: op.name } : me));
+              } else if (op.type === 'addCard' && op.anonymous) {
+                setYou((me) =>
+                  me
+                    ? {
+                        ...me,
+                        anonymousCardIds: [...me.anonymousCardIds, op.id],
+                      }
+                    : me,
+                );
+              } else if (op.type === 'addComment' && op.anonymous) {
+                setYou((me) =>
+                  me
+                    ? {
+                        ...me,
+                        anonymousCommentIds: [...me.anonymousCommentIds, op.id],
+                      }
+                    : me,
+                );
+              }
             }
             break;
           }
@@ -186,6 +213,12 @@ export function useBoard(
             return;
           }
         }
+        if (event.code === 1008 && event.reason === 'identity') {
+          // Retrying with the same id and secret cannot succeed.
+          closedForGood.current = true;
+          setStatus('refused');
+          return;
+        }
         // The upgrade itself failed (404 for a missing board shows up as an
         // immediate close with code 1006 before any snapshot).
         if (
@@ -217,7 +250,7 @@ export function useBoard(
       socket.current?.close(1000, 'leaving');
       socket.current = null;
     };
-  }, [code, identity.id, identity.name, ownerToken]);
+  }, [code, identity, ownerToken]);
 
   const confirmedRef = useRef<Board | null>(null);
   confirmedRef.current = confirmed;

@@ -1,6 +1,6 @@
 import { LIMITS } from '#shared/limits';
 import { TEMPLATES } from '#shared/templates';
-import { REACTIONS } from '#shared/types';
+import { DEFAULT_SETTINGS, REACTIONS } from '#shared/types';
 import { Badge } from '@/components/ui/badge';
 import { linkProps } from '@/lib/router';
 import { useConfig } from '@/pages/HomePage';
@@ -60,8 +60,9 @@ export function HelpPage() {
             Turnstile) before the Create button works; joining never does.
           </p>
           <p>
-            Templates set the starting columns. The owner can add, rename and
-            remove columns afterwards (up to {LIMITS.columnsMax}).
+            Templates set the starting columns. Anyone on the board can add,
+            rename and remove columns afterwards (up to {LIMITS.columnsMax}),
+            unless the owner has locked facilitation to themselves.
           </p>
           <ul className="grid gap-2 sm:grid-cols-2">
             {TEMPLATES.map((t) => (
@@ -104,10 +105,11 @@ export function HelpPage() {
               Voting is closed.
             </Term>
             <Term name="Vote">
-              Cards are revealed. Each person has a budget of votes (default{' '}
-              {LIMITS.votesPerPersonMin}–{LIMITS.votesPerPersonMax}, set by the
-              owner) to spend on the cards that matter most. You can put several
-              votes on one card and take them back.
+              Cards are revealed. Each person has a budget of votes (
+              {DEFAULT_SETTINGS.votesPerPerson} by default; the owner can set
+              anything from {LIMITS.votesPerPersonMin} to{' '}
+              {LIMITS.votesPerPersonMax}) to spend on the cards that matter
+              most. You can put several votes on one card and take them back.
             </Term>
             <Term name="Discuss">
               Columns sort by votes so the top items are at the top. Vote counts
@@ -115,8 +117,9 @@ export function HelpPage() {
             </Term>
           </dl>
           <p>
-            By default anyone can move the phase and set the timer. The owner
-            can lock that to themselves in Settings ("Only I can facilitate").
+            By default anyone can move the phase, set the timer, rename the
+            board and change its columns. The owner can lock all of that to
+            themselves in Settings ("Only I can facilitate").
           </p>
         </Section>
 
@@ -126,6 +129,13 @@ export function HelpPage() {
             <Kbd>Shift</Kbd>+<Kbd>Enter</Kbd> for a new line). Tick "Post
             anonymously" to leave your name off a card; the owner can disable
             anonymous cards for the board.
+          </p>
+          <p>
+            An anonymous card is anonymous to everyone, the owner included: the
+            server sends it out without any author information, so nobody on the
+            board can work out who posted it. Only the browser you posted it
+            from knows it is yours, which is how you can still edit or delete
+            it. Votes and reactions are not anonymous.
           </p>
           <p>
             To change a card you wrote, use the <Kbd>⋯</Kbd> button at its top
@@ -207,10 +217,10 @@ export function HelpPage() {
 
         <Section id="ownership" title="Ownership and deleting" index={11}>
           <p>
-            Whoever creates a board owns it. The owner can change settings,
-            manage columns, delete any card and delete the whole board.
-            Ownership lives in the browser that created the board, so open it
-            from the same device.
+            Whoever creates a board owns it. The owner can change settings (vote
+            budget, anonymous cards, blurring, the facilitation lock), delete
+            any card or comment, and delete the whole board. Ownership lives in
+            the browser that created the board, so open it from the same device.
           </p>
           <p>
             Deleting a board removes it immediately for everyone on it. It

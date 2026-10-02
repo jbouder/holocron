@@ -61,14 +61,14 @@ export function exportUrl(code: string): string {
 
 export function socketUrl(
   code: string,
-  pid: string,
-  name: string,
+  identity: { id: string; secret: string; name: string },
   token: string | null,
 ): string {
   const url = new URL(`/ws/${encodeURIComponent(code)}`, window.location.href);
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
-  url.searchParams.set('pid', pid);
-  url.searchParams.set('name', name);
+  url.searchParams.set('pid', identity.id);
+  url.searchParams.set('secret', identity.secret);
+  url.searchParams.set('name', identity.name);
   if (token) {
     url.searchParams.set('token', token);
   }

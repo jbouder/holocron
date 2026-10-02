@@ -69,7 +69,12 @@ export function BoardPage({ code }: { code: string }) {
   }, [board, code, you?.isOwner]);
 
   useEffect(() => {
-    if (status === 'expired' || status === 'deleted' || status === 'missing') {
+    if (
+      status === 'expired' ||
+      status === 'deleted' ||
+      status === 'missing' ||
+      status === 'refused'
+    ) {
       markGone(status, code);
     }
   }, [status, code]);

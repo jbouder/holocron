@@ -15,7 +15,7 @@ import {
 } from 'react';
 import { LIMITS } from '#shared/limits';
 import type { Op, You } from '#shared/protocol';
-import { isCardHidden, votesUsed } from '#shared/reducer';
+import { isCardAuthor, isCardHidden, votesUsed } from '#shared/reducer';
 import type { Board, Card } from '#shared/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -65,10 +65,12 @@ export function CardView({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(card.text);
 
-  const mine = card.authorId === you.id;
+  // Anonymous cards carry no author id; `you` lists the ones that are yours.
+  const mine = isCardAuthor(card, you);
+  // The menu: delete (author or owner) and ungroup. Editing is author-only.
   const canEdit = mine || you.isOwner;
   const canArrange = canEdit || !board.settings.facilitatorOnly || you.isOwner;
-  const blurred = isCardHidden(board, card, you.id);
+  const blurred = isCardHidden(board, card, you);
   const [threadOpen, setThreadOpen] = useState(false);
   const threadId = useId();
   const commentCount = commentsOn(board, card).length;
@@ -77,7 +79,7 @@ export function CardView({
     board.votes.find((v) => v.cardId === card.id && v.participantId === you.id)
       ?.count ?? 0;
   const votesLeft = board.settings.votesPerPerson - votesUsed(board, you.id);
-  const canInlineEdit = canEdit && !blurred;
+  const canInlineEdit = mine && !blurred;
   const lastTap = useRef({ time: 0, x: 0, y: 0 });
 
   function startEdit() {

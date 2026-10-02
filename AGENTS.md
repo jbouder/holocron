@@ -44,10 +44,23 @@ fails on Vitest 4.1 peers).
   op and broadcasts the op with a sequence number. Clients resync on a gap.
 - **Owner ≠ participant id.** Owner status comes only from the owner token
   (hashed in the DO, sent on the socket URL). Never trust a client-sent id.
+- **A participant id is bound to a browser secret.** The DO hashes the
+  `secret` query param on the first socket for an id and refuses later
+  sockets that bring another one (close 1008 `identity`). Nothing may accept
+  a participant id without going through that check.
+- **Anonymous means no author id on the wire.** The DO's document keeps the
+  real `authorId`; `redactAnonymous()` blanks it on every snapshot, and
+  `apply()` blanks the actor on echoes of an anonymous author's own ops.
+  The author learns which items are theirs through `you.anonymousCardIds`
+  / `anonymousCommentIds`. Use `isCardAuthor` / `isCommentAuthor`, never
+  compare `authorId` directly. Anything new that carries a participant id
+  must go through the same redaction.
 - **The wipe is sacred.** `alarm()` → `wipe()` → `storage.deleteAll()`. Every
   entry point calls `expireIfDue()` first. Do not add anything that survives it.
-- **No animation libraries.** View Transitions, WAAPI, `@starting-style`,
-  CSS `linear()` springs. Helpers in `src/lib/motion.ts`, `src/hooks/useFlip.ts`.
+- **No animation libraries for app motion.** View Transitions, WAAPI,
+  `@starting-style`, CSS `linear()` springs. Helpers in `src/lib/motion.ts`,
+  `src/hooks/useFlip.ts`. (`tw-animate-css` is imported only because the
+  stock shadcn overlays in `src/components/ui/*` use it; do not reach for it.)
   Tokens, not literals (`var(--duration-base)`, `var(--ease-emphasized)`).
   Animate `opacity`/`transform` only; position changes go through FLIP or View
   Transitions. Scope `view-transition-name`s with `html[data-vt="…"]`

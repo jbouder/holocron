@@ -3,9 +3,14 @@ import { boardToMarkdown } from '#shared/export';
 import { LIMITS } from '#shared/limits';
 import { type Op, OpSchema } from '#shared/protocol';
 import {
+  anonymousIdsFor,
   cardsInColumn,
   createBoard,
+  isCardAuthor,
+  isCardHidden,
+  isCommentAuthor,
   OpError,
+  redactAnonymous,
   reduce,
   upgradeBoard,
   votesFor,
@@ -108,10 +113,13 @@ describe('cards', () => {
     expect(() => reduce(board, add('c1', 'x', true), han)).toThrow(OpError);
   });
 
-  it('only lets the author or owner edit and delete', () => {
+  it('lets only the author edit, and the author or owner delete', () => {
     const board = apply(fresh(), [[add('c1', 'typo'), han]]);
     expect(() =>
       reduce(board, { type: 'editCard', id: 'c1', text: 'fixed' }, luke),
+    ).toThrow(/own cards/);
+    expect(() =>
+      reduce(board, { type: 'editCard', id: 'c1', text: 'fixed' }, owner),
     ).toThrow(/own cards/);
     const edited = reduce(
       board,
@@ -119,6 +127,9 @@ describe('cards', () => {
       han,
     );
     expect(edited.cards[0].text).toBe('fixed');
+    expect(() =>
+      reduce(edited, { type: 'deleteCard', id: 'c1' }, luke),
+    ).toThrow(/own cards/);
     const removed = reduce(edited, { type: 'deleteCard', id: 'c1' }, owner);
     expect(removed.cards).toHaveLength(0);
   });
@@ -643,5 +654,131 @@ describe('export with reactions and comments', () => {
     expect(md).toContain(
       '  - Flaky CI _(Luke)_ · 🤔 1\n    - 💬 Mostly Tuesday\n',
     );
+  });
+});
+
+describe('anonymity', () => {
+  /** A board with one anonymous card and one anonymous comment by Han. */
+  function withSecrets(): Board {
+    return apply(fresh(), [
+      [add('signed', 'Shipped it'), han],
+      [add('secret', 'I broke prod', true), han],
+      [
+        {
+          type: 'addComment',
+          id: 'whisper',
+          cardId: 'secret',
+          text: 'twice',
+          anonymous: true,
+        },
+        han,
+      ],
+    ]);
+  }
+
+  it('redacts the author id of anonymous cards and comments, nothing else', () => {
+    const redacted = redactAnonymous(withSecrets());
+    expect(redacted.cards.find((c) => c.id === 'secret')).toMatchObject({
+      authorId: '',
+      anonymous: true,
+      text: 'I broke prod',
+    });
+    expect(redacted.cards.find((c) => c.id === 'signed')?.authorId).toBe('han');
+    expect(redacted.comments[0].authorId).toBe('');
+    expect(redacted.participants.map((p) => p.id)).toContain('han');
+  });
+
+  it('lists a participant’s own anonymous items for their `you`', () => {
+    expect(anonymousIdsFor(withSecrets(), 'han')).toEqual({
+      anonymousCardIds: ['secret'],
+      anonymousCommentIds: ['whisper'],
+    });
+    expect(anonymousIdsFor(withSecrets(), 'luke')).toEqual({
+      anonymousCardIds: [],
+      anonymousCommentIds: [],
+    });
+  });
+
+  it('recognises authorship on the full and the redacted document', () => {
+    const full = withSecrets();
+    const redacted = redactAnonymous(full);
+    const secret = (b: Board) =>
+      b.cards.find((c) => c.id === 'secret') as Board['cards'][number];
+    const hanClient = { ...han, ...anonymousIdsFor(full, 'han') };
+
+    expect(isCardAuthor(secret(full), han)).toBe(true);
+    expect(isCardAuthor(secret(redacted), han)).toBe(false);
+    expect(isCardAuthor(secret(redacted), hanClient)).toBe(true);
+    expect(isCardAuthor(secret(redacted), luke)).toBe(false);
+    expect(isCardAuthor(secret(redacted), owner)).toBe(false);
+    expect(isCommentAuthor(redacted.comments[0], hanClient)).toBe(true);
+    expect(isCommentAuthor(redacted.comments[0], owner)).toBe(false);
+  });
+
+  it('never matches an empty author id against an empty viewer id', () => {
+    const redacted = redactAnonymous(withSecrets());
+    const secret = redacted.cards.find((c) => c.id === 'secret');
+    const ghost = { id: '', name: '', isOwner: false };
+    expect(secret && isCardAuthor(secret, ghost)).toBe(false);
+    expect(() =>
+      reduce(redacted, { type: 'editCard', id: 'secret', text: 'x' }, ghost),
+    ).toThrow(/own cards/);
+  });
+
+  it('lets the author edit and delete their anonymous card from a redacted board', () => {
+    const redacted = redactAnonymous(withSecrets());
+    const hanClient: Actor = {
+      ...han,
+      ...anonymousIdsFor(withSecrets(), 'han'),
+    };
+    const edited = reduce(
+      redacted,
+      { type: 'editCard', id: 'secret', text: 'I fixed prod' },
+      hanClient,
+    );
+    expect(edited.cards.find((c) => c.id === 'secret')?.text).toBe(
+      'I fixed prod',
+    );
+    expect(() =>
+      reduce(redacted, { type: 'editCard', id: 'secret', text: 'x' }, owner),
+    ).toThrow(/own cards/);
+    // The owner can still delete it without knowing who wrote it.
+    expect(
+      reduce(redacted, { type: 'deleteCard', id: 'secret' }, owner).cards,
+    ).toHaveLength(1);
+    const commented = reduce(
+      redacted,
+      { type: 'editComment', id: 'whisper', text: 'thrice' },
+      hanClient,
+    );
+    expect(commented.comments[0].text).toBe('thrice');
+  });
+
+  it('does not blur an author’s own anonymous card on a redacted board', () => {
+    const redacted = redactAnonymous(withSecrets());
+    const secret = redacted.cards.find(
+      (c) => c.id === 'secret',
+    ) as Board['cards'][number];
+    const hanClient = { ...han, ...anonymousIdsFor(withSecrets(), 'han') };
+    expect(isCardHidden(redacted, secret, hanClient)).toBe(false);
+    expect(isCardHidden(redacted, secret, luke)).toBe(true);
+  });
+
+  it('applies a redacted echo without seating a phantom participant', () => {
+    const redacted = redactAnonymous(withSecrets());
+    const echoActor: Actor = {
+      id: '',
+      name: '',
+      isOwner: false,
+      anonymousCardIds: ['later'],
+    };
+    const next = reduce(redacted, add('later', 'quietly', true), echoActor);
+    expect(next.participants.some((p) => p.id === '')).toBe(false);
+    expect(next.cards.find((c) => c.id === 'later')).toMatchObject({
+      authorId: '',
+      anonymous: true,
+    });
+    const moved = reduce(next, { type: 'deleteCard', id: 'later' }, echoActor);
+    expect(moved.cards.some((c) => c.id === 'later')).toBe(false);
   });
 });

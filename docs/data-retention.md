@@ -12,14 +12,22 @@
 - reactions: card id, participant id, emoji (from a fixed set)
 - comments: text, card id, author's participant id and display name (empty if
   anonymous), timestamps
+
+The author's participant id on an **anonymous** card or comment stays inside
+the Durable Object. Other participants, the owner included, receive it blank,
+and the live updates about that card do not name the author either. Only the
+browser that posted it is told it is theirs. Votes and reactions are not
+anonymous: everyone can see who voted or reacted.
 - action items: text, owner name, done flag
 - participants: id and display name
+- a SHA-256 hash of each participant's browser secret (never the secret), so
+  nobody else can connect under their id
 - a SHA-256 hash of the owner token (never the token)
 - the sequence number and the expiry time
 
 **In the participant's browser (`localStorage`, keys prefixed `holocron:`):**
 
-- a random participant id and the display name
+- a random participant id, a random participant secret, and the display name
 - owner tokens for boards created in that browser
 - theme and motion preferences
 - recent boards (code, title, expiry), pruned as they expire
@@ -51,9 +59,12 @@ Boards do not reset to empty; they cease to exist. There is no archive,
 export history, or backup. What a team wants to keep, it exports as Markdown
 before the reset.
 
-Request logs (status, path, timing) are kept according to your Cloudflare
-account's Workers Logs retention. The application logs one line per failed
-request and nothing per successful one.
+Request logs (status, URL, timing) are kept according to your Cloudflare
+account's Workers Logs retention. The participant id and secret, the display
+name and, for the owner, the owner token are sent as query parameters on the
+WebSocket URL, so a deployment with Workers Logs enabled has them in its
+request logs for as long as that retention lasts. The application itself logs one line
+per unexpected server error and nothing per successful request.
 
 ## Who can see a board
 

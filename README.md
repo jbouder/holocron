@@ -25,8 +25,10 @@ WebSockets, and wipes itself on an alarm.
   person spends a budget of dot votes (default 5, several per card allowed).
   In *Discuss*, columns sort by votes and the action items panel opens.
 - **Cards.** Enter posts, Shift+Enter breaks a line. Optional per-card
-  anonymity. Edit and delete your own from the `⋯` menu on the card (or
-  double-click to edit); the owner can delete any.
+  anonymity: an anonymous card leaves the server with no author id at all,
+  so nobody on the board, the owner included, can tell who wrote it. Edit
+  and delete your own from the `⋯` menu on the card (or double-click to
+  edit); the owner can delete any.
 - **Reactions and comments.** A fixed set of emoji reactions (👍 ❤️ 😂 🎉 🤔)
   that cost no votes, and short comment threads under each card for
   discussion context. Both are hidden on cards still blurred in Write and
@@ -39,9 +41,13 @@ WebSockets, and wipes itself on an alarm.
 - **Export.** Markdown download or copy: columns, grouped cards with votes
   and reactions, comments, action items. Same output from the UI and the
   `/export.md` endpoint.
-- **Ownership.** The creator can rename, manage columns, lock facilitation to
-  themselves, change vote budgets, and delete the board early. Ownership is a
-  token in the creating browser; the server stores only its hash.
+- **Facilitation.** By default anyone on the board can move the phase, set
+  the timer, rename the board, and add, rename or remove columns. The owner
+  can lock all of that to themselves ("Only I can facilitate").
+- **Ownership.** The creator can change settings (vote budget, anonymity,
+  blurring, the facilitation lock), delete any card or comment, and delete
+  the board early. Ownership is a token in the creating browser; the server
+  stores only its hash.
 - **Themes**: System, Light, Dark (side), plus Dagobah, Tatooine and
   Synthwave, and a motion switch in Preferences.
   `prefers-reduced-motion` is a hard override.
@@ -59,14 +65,17 @@ WebSockets, and wipes itself on an alarm.
 - While a board is live, its data sits in that one Durable Object and is
   readable by anyone who has the code. **Do not put secrets on a retro board.**
 - The server keeps no accounts and no analytics. Request logs follow your
-  Cloudflare account's Workers observability settings.
+  Cloudflare account's Workers observability settings; note that the
+  participant id and secret, display name and (for the owner) the owner
+  token travel in the WebSocket URL, so they can appear in those logs.
 - Optional, off by default: a deployment can require a Cloudflare Turnstile
   check to create a board. Turnstile is a Cloudflare service; when it is on,
   the home page loads its script and the creator's browser is checked by
   Cloudflare. Joining a board never involves it. See
   [docs/self-hosting.md](docs/self-hosting.md).
-- The browser stores: a random participant id, your display name, owner tokens
-  for boards you created, theme and motion preferences, and a list of recent
+- The browser stores: a random participant id and secret (the secret is what
+  stops anyone else connecting as you), your display name, owner tokens for
+  boards you created, theme and motion preferences, and a list of recent
   boards (pruned as they expire). All under `localStorage` keys prefixed
   `holocron:`. Clearing site data removes them.
 
@@ -89,8 +98,10 @@ React 19 + TypeScript + Vite 7, Tailwind CSS v4, stock shadcn (base-lyra on
 Base UI), Oxanium + JetBrains Mono, Phosphor icons, zod, Biome. Cloudflare
 Workers + Durable Objects (SQLite storage, WebSocket hibernation) through
 `@cloudflare/vite-plugin`. Tests with Vitest inside workerd via
-`@cloudflare/vitest-plugin`. No animation libraries: View Transitions, the
-Web Animations API, `@starting-style`, and CSS `linear()` springs.
+`@cloudflare/vitest-plugin`. No animation library for the app's own motion:
+View Transitions, the Web Animations API, `@starting-style`, and CSS
+`linear()` springs. (The stock shadcn overlays ship with `tw-animate-css`
+for their open and close transitions; nothing else uses it.)
 
 ## Commands
 

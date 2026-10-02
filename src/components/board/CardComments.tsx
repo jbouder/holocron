@@ -7,6 +7,7 @@ import {
 import { type FormEvent, useId, useState } from 'react';
 import { LIMITS } from '#shared/limits';
 import type { Op, You } from '#shared/protocol';
+import { isCommentAuthor } from '#shared/reducer';
 import type { Board, Card, Comment } from '#shared/types';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -118,7 +119,8 @@ function CommentItem({
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(comment.text);
-  const mine = comment.authorId === you.id;
+  // Anonymous comments carry no author id; `you` lists the ones that are yours.
+  const mine = isCommentAuthor(comment, you);
   const canDelete = mine || you.isOwner;
 
   function commit() {

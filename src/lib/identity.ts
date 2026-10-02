@@ -1,17 +1,29 @@
 import { useSyncExternalStore } from 'react';
 
 /**
- * Who you are on this device. No accounts: a random id and a display name in
- * localStorage. Owner tokens for boards you created live beside it.
+ * Who you are on this device. No accounts: a random id, a random secret and
+ * a display name in localStorage. Owner tokens for boards you created live
+ * beside it.
+ *
+ * The id is public (it is on every card you sign). The secret is what stops
+ * someone else on the board from connecting as you: a board binds the id to
+ * the secret's hash the first time it sees it.
  */
 
 export interface Identity {
   id: string;
+  secret: string;
   name: string;
 }
 
 const KEY = 'holocron:identity';
 const OWNER_PREFIX = 'holocron:owner:';
+
+function randomSecret(): string {
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+}
 
 function read(): Identity {
   try {
@@ -19,16 +31,29 @@ function read(): Identity {
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<Identity>;
       if (typeof parsed.id === 'string' && parsed.id) {
-        return {
+        const identity: Identity = {
           id: parsed.id,
+          // Identities saved before secrets existed get one now.
+          secret:
+            typeof parsed.secret === 'string' && parsed.secret
+              ? parsed.secret
+              : randomSecret(),
           name: typeof parsed.name === 'string' ? parsed.name : '',
         };
+        if (identity.secret !== parsed.secret) {
+          write(identity);
+        }
+        return identity;
       }
     }
   } catch {
     // Fall through to a fresh identity.
   }
-  const fresh = { id: crypto.randomUUID(), name: '' };
+  const fresh: Identity = {
+    id: crypto.randomUUID(),
+    secret: randomSecret(),
+    name: '',
+  };
   write(fresh);
   return fresh;
 }

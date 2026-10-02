@@ -15,6 +15,10 @@ const COPY = {
     title: 'No board here',
     body: 'Check the code with whoever shared it. It may have expired overnight.',
   },
+  refused: {
+    title: 'This board does not recognise this browser',
+    body: 'Someone on it already uses your participant id from another browser. Clear this site’s data to get a fresh identity, then open the board again.',
+  },
 } as const;
 
 export function GonePage({

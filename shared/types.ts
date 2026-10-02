@@ -125,12 +125,31 @@ export interface Board {
   participants: Participant[];
 }
 
-/** Who is performing an operation. The server derives this from the socket. */
+/**
+ * Who is performing an operation. The server derives this from the socket.
+ *
+ * Anonymous cards and comments reach clients with an empty `authorId`, so a
+ * client cannot tell who wrote them from the document. The author's own
+ * client instead learns which ones are theirs from the two id lists (sent
+ * in `you` on the snapshot and on echoes of their own ops). On the server
+ * the document holds the real author ids and the lists are not needed.
+ *
+ * `id` is empty on an echo of an anonymous author's op to everyone else, so
+ * the echo does not reveal them either; `withParticipant` ignores it.
+ */
 export interface Actor {
   id: string;
   name: string;
   isOwner: boolean;
+  anonymousCardIds?: readonly string[];
+  anonymousCommentIds?: readonly string[];
 }
+
+/** Enough of an actor to decide whether something is theirs. */
+export type Viewer = Pick<
+  Actor,
+  'id' | 'anonymousCardIds' | 'anonymousCommentIds'
+>;
 
 export const DEFAULT_SETTINGS: Settings = {
   votesPerPerson: 5,
