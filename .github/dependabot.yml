@@ -1,4 +1,4 @@
-# Weekly dependency and workflow updates as pull requests. They run the CI
+# Monthly dependency and workflow updates as pull requests. They run the CI
 # `check` job like any other PR and never deploy (see docs/self-hosting.md).
 version: 2
 updates:
@@ -7,7 +7,7 @@ updates:
   - package-ecosystem: bun
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
     open-pull-requests-limit: 5
     labels: [dependencies]
     groups:
@@ -18,7 +18,7 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
     open-pull-requests-limit: 5
     labels: [dependencies]
     groups:

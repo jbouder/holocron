@@ -85,7 +85,7 @@ run at least once.
 
 ### Dependency updates
 
-`.github/dependabot.yml` asks Dependabot for weekly pull requests: npm
+`.github/dependabot.yml` asks Dependabot for monthly pull requests: npm
 packages (through `package.json` and `bun.lock`) and the GitHub Actions the
 workflow uses. Minor and patch bumps are grouped into one PR per ecosystem;
 each major version gets its own. They are ordinary PRs, so they run `check`
@@ -94,7 +94,7 @@ and never deploy. Nothing merges automatically.
 On a fork, Dependabot version updates follow this file once you enable them
 under Settings → Code security. Turn on Dependabot alerts and security
 updates there too if you want patches for known vulnerabilities between the
-weekly runs. Leave `src/components/ui/*` to the shadcn CLI; Dependabot only
+monthly runs. Leave `src/components/ui/*` to the shadcn CLI; Dependabot only
 touches dependency manifests.
 
 ## Local development
