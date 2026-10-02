@@ -241,9 +241,12 @@ export function HelpPage() {
 
         <Section id="preferences" title="Preferences" index={13}>
           <p>
-            The gear icon holds the light/dark theme, a motion switch, and your
-            name. Motion follows your operating system's "reduce motion" setting
-            first; when that is on, the switch is disabled and nothing animates.
+            The gear icon holds a motion switch, the theme, and your name.
+            Themes: System (follows your device), Light, Dark (side), and three
+            just for fun: Dagobah, Tatooine and Synthwave. The theme is yours
+            alone; other people on the board keep their own. Motion follows your
+            operating system's "reduce motion" setting first; when that is on,
+            the switch is disabled and nothing animates.
           </p>
           <p className="text-muted-foreground">
             Want to run Holocron on your own Cloudflare account? The{' '}

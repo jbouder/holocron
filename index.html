@@ -6,17 +6,24 @@
     <meta name="color-scheme" content="dark light" />
     <script>
       // Apply the saved theme before first paint so there is no flash.
+      // Mirrors apply() in src/providers/ThemeProvider.tsx; the ids come
+      // from src/lib/themes.ts.
       (() => {
-        let dark = true;
+        const darkBased = ['dark', 'dagobah', 'synthwave'];
+        const palettes = ['dagobah', 'tatooine', 'synthwave'];
+        let saved = null;
         try {
-          const saved = localStorage.getItem('holocron:theme');
-          dark = saved
-            ? saved === 'dark'
-            : matchMedia('(prefers-color-scheme: dark)').matches;
+          saved = localStorage.getItem('holocron:theme');
         } catch {
-          // Blocked storage: fall back to dark.
+          // Blocked storage: follow the OS.
         }
-        document.documentElement.classList.toggle('dark', dark);
+        const root = document.documentElement;
+        const known = darkBased.includes(saved) || ['light', 'tatooine'].includes(saved);
+        const dark = known
+          ? darkBased.includes(saved)
+          : matchMedia('(prefers-color-scheme: dark)').matches;
+        root.classList.toggle('dark', dark);
+        if (palettes.includes(saved)) root.dataset.theme = saved;
       })();
     </script>
     <meta

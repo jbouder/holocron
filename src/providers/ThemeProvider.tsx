@@ -8,27 +8,65 @@ import {
   useState,
 } from 'react';
 import { withViewTransition } from '@/lib/motion';
+import {
+  isThemeId,
+  PALETTE_IDS,
+  type ThemeId,
+  themeOption,
+} from '@/lib/themes';
 import { useMotion } from '@/providers/MotionProvider';
 
-export type Theme = 'light' | 'dark';
-
 const STORAGE_KEY = 'holocron:theme';
+const DARK_QUERY = '(prefers-color-scheme: dark)';
 
 interface ThemeContextValue {
-  theme: Theme;
-  /** Flip the theme inside a short crossfade (a view transition). */
-  toggle: () => void;
+  /** What the person picked, `system` included. */
+  theme: ThemeId;
+  /** Light or dark after resolving `system` and the theme's base. */
+  mode: 'light' | 'dark';
+  /** Switch theme inside a short crossfade (a view transition). */
+  setTheme: (theme: ThemeId) => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-/** index.html already applied this before first paint; read it back. */
-function readTheme(): Theme {
-  return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+/** No saved choice (or an unknown one) means follow the OS. */
+function readTheme(): ThemeId {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (isThemeId(saved)) {
+      return saved;
+    }
+  } catch {
+    // Blocked storage: follow the OS.
+  }
+  return 'system';
 }
 
-function apply(theme: Theme) {
-  document.documentElement.classList.toggle('dark', theme === 'dark');
+function systemDark(): boolean {
+  return matchMedia(DARK_QUERY).matches;
+}
+
+function resolveMode(theme: ThemeId): 'light' | 'dark' {
+  const { base } = themeOption(theme);
+  if (base === 'system') {
+    return systemDark() ? 'dark' : 'light';
+  }
+  return base;
+}
+
+/** Same logic as the inline script in index.html. */
+function apply(theme: ThemeId) {
+  const root = document.documentElement;
+  root.classList.toggle('dark', resolveMode(theme) === 'dark');
+  if (PALETTE_IDS.includes(theme)) {
+    root.dataset.theme = theme;
+  } else {
+    delete root.dataset.theme;
+  }
+}
+
+function save(theme: ThemeId) {
   try {
     localStorage.setItem(STORAGE_KEY, theme);
   } catch {
@@ -38,27 +76,59 @@ function apply(theme: Theme) {
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const { active } = useMotion();
-  const [theme, setTheme] = useState<Theme>(readTheme);
+  const [theme, setThemeState] = useState<ThemeId>(readTheme);
+  const [mode, setMode] = useState(() => resolveMode(theme));
 
   useEffect(() => {
     apply(theme);
+    setMode(resolveMode(theme));
   }, [theme]);
 
-  const toggle = useCallback(() => {
-    const next: Theme = theme === 'dark' ? 'light' : 'dark';
-    // The class has to change inside the transition callback so the "new"
-    // snapshot is taken in the new theme; the state update follows.
-    withViewTransition(
-      () => {
-        apply(next);
-        setTheme(next);
-      },
-      active,
-      'theme',
-    );
+  // Following the OS: re-resolve when it flips.
+  useEffect(() => {
+    if (theme !== 'system') {
+      return;
+    }
+    const query = matchMedia(DARK_QUERY);
+    const onChange = () => {
+      withViewTransition(
+        () => {
+          apply('system');
+          setMode(resolveMode('system'));
+        },
+        active,
+        'theme',
+      );
+    };
+    query.addEventListener('change', onChange);
+    return () => query.removeEventListener('change', onChange);
   }, [theme, active]);
 
-  const value = useMemo(() => ({ theme, toggle }), [theme, toggle]);
+  const setTheme = useCallback(
+    (next: ThemeId) => {
+      if (next === theme) {
+        return;
+      }
+      save(next);
+      // The DOM has to change inside the transition callback so the "new"
+      // snapshot is taken in the new theme; the state update follows.
+      withViewTransition(
+        () => {
+          apply(next);
+          setThemeState(next);
+          setMode(resolveMode(next));
+        },
+        active,
+        'theme',
+      );
+    },
+    [theme, active],
+  );
+
+  const value = useMemo(
+    () => ({ theme, mode, setTheme }),
+    [theme, mode, setTheme],
+  );
 
   return (
     <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>

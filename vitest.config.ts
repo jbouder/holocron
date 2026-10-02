@@ -18,5 +18,8 @@ export default defineConfig({
   },
   test: {
     include: ['test/**/*.test.ts'],
+    // test/themes.test.ts reads src/index.css?raw; without this Vitest
+    // replaces CSS imports with an empty string.
+    css: { include: /index\.css/ },
   },
 });
