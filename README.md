@@ -5,8 +5,8 @@ The retro board that doesn't keep your retros.
 No accounts, no history, no archive. Create a board, share the six-character
 code, and run the retro together: **Write → Vote → Discuss**. Cards, dot
 voting, drag-to-group, a shared timer, action items, Markdown export. Export
-what you want to keep; the board itself is **erased from the archives, every
-morning** (6:00 AM Eastern by default).
+what you want to keep, then delete the board yourself or let it go: every board
+is **erased from the archives, every morning** (6:00 AM Eastern by default).
 
 Runs entirely on Cloudflare: one Worker serves the app, and each board is a
 SQLite-backed Durable Object that holds the data, pushes live updates over
