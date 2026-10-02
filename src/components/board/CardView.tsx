@@ -101,7 +101,7 @@ export function CardView({
           <button
             type="button"
             aria-label="Drag to group or move"
-            className="-ml-1.5 mt-0.5 shrink-0 rounded text-muted-foreground/60 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-ring/50"
+            className="-ml-1.5 mt-0.5 shrink-0 rounded text-muted-foreground/60 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover-none:opacity-100 focus-visible:outline-2 focus-visible:outline-ring/50"
             {...handleProps(card.id, card.groupId)}
           >
             <DotsSixVerticalIcon weight="bold" className="size-4" />
@@ -142,7 +142,7 @@ export function CardView({
                   variant="ghost"
                   size="icon-xs"
                   aria-label="Card actions"
-                  className="press -mt-1 -mr-1.5 shrink-0 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 aria-expanded:opacity-100"
+                  className="press -mt-1 -mr-1.5 shrink-0 opacity-50 group-focus-within:opacity-100 group-hover:opacity-100 aria-expanded:opacity-100 hover-none:opacity-100"
                 />
               }
             >
@@ -184,7 +184,7 @@ export function CardView({
                   variant="ghost"
                   size="icon-xs"
                   aria-label="Ungroup"
-                  className="press -mt-1 -mr-1.5 shrink-0 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100"
+                  className="press -mt-1 -mr-1.5 shrink-0 opacity-50 group-focus-within:opacity-100 group-hover:opacity-100 hover-none:opacity-100"
                   onClick={() => dispatch({ type: 'ungroupCard', id: card.id })}
                 />
               }

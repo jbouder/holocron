@@ -5,6 +5,8 @@
 @import "@fontsource-variable/jetbrains-mono";
 
 @custom-variant dark (&:is(.dark *));
+/* Touch screens and other devices that cannot hover: hover reveals never fire. */
+@custom-variant hover-none (@media (hover: none));
 
 /*
  * Theme: stock shadcn base-lyra (neutral) with the font swap used in
