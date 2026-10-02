@@ -241,9 +241,9 @@ export function HelpPage() {
         <Section id="preferences" title="Preferences" index={13}>
           <p>
             The gear icon holds a motion switch, the theme, and your name.
-            Themes: System (follows your device), Light, Dark, and three just
-            for fun: Dagobah, Tatooine and Synthwave. The theme is yours alone;
-            other people on the board keep their own. Motion follows your
+            Themes: System (follows your device), Light, Dark (side), and three
+            just for fun: Dagobah, Tatooine and Synthwave. The theme is yours
+            alone; other people on the board keep their own. Motion follows your
             operating system's "reduce motion" setting first; when that is on,
             the switch is disabled and nothing animates.
           </p>

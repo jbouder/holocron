@@ -37,8 +37,8 @@ WebSockets, and wipes itself on an alarm.
 - **Ownership.** The creator can rename, manage columns, lock facilitation to
   themselves, change vote budgets, and delete the board early. Ownership is a
   token in the creating browser; the server stores only its hash.
-- **Themes**: System, Light, Dark, plus Dagobah, Tatooine and Synthwave,
-  and a motion switch in Preferences.
+- **Themes**: System, Light, Dark (side), plus Dagobah, Tatooine and
+  Synthwave, and a motion switch in Preferences.
   `prefers-reduced-motion` is a hard override.
 - **In-app help** at `/help` covers everything above for participants.
 

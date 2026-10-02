@@ -25,7 +25,7 @@ export interface ThemeOption {
 export const THEMES: readonly ThemeOption[] = [
   { id: 'system', label: 'System', base: 'system' },
   { id: 'light', label: 'Light', base: 'light' },
-  { id: 'dark', label: 'Dark', base: 'dark' },
+  { id: 'dark', label: 'Dark (side)', base: 'dark' },
   { id: 'dagobah', label: 'Dagobah', base: 'dark' },
   { id: 'tatooine', label: 'Tatooine', base: 'light' },
   { id: 'synthwave', label: 'Synthwave', base: 'dark' },
