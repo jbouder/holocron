@@ -64,8 +64,9 @@ WebSockets work on custom domains without extra configuration.
 
 ## Deploy from GitHub Actions
 
-`.github/workflows/deploy.yml` runs checks and tests on every push, and
-deploys `main` when two repository secrets exist:
+`.github/workflows/ci.yml` runs the `check` job (Biome, `tsc -b`, `vite build`,
+Vitest) on every pull request and every push to `main`, and deploys `main`
+when two repository secrets exist:
 
 | Secret | Where to get it |
 |---|---|
@@ -75,6 +76,12 @@ deploys `main` when two repository secrets exist:
 Add them under Settings → Secrets and variables → Actions. The deploy job uses
 a `production` environment; create it (Settings → Environments) if you want
 required reviewers before a deploy.
+
+Pull requests never deploy and never see the Cloudflare secrets, including
+PRs from forks. To block merging until checks pass, add a branch protection
+rule (or ruleset) on `main` under Settings → Branches with "Require status
+checks to pass" and select `check`. GitHub only offers it once the job has
+run at least once.
 
 ## Local development
 
