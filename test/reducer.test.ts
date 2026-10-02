@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { boardToMarkdown } from '#shared/export';
-import type { Op } from '#shared/protocol';
+import { LIMITS } from '#shared/limits';
+import { type Op, OpSchema } from '#shared/protocol';
 import {
   cardsInColumn,
   createBoard,
   OpError,
   reduce,
+  upgradeBoard,
   votesFor,
   votesUsed,
 } from '#shared/reducer';
@@ -328,5 +330,318 @@ describe('action items and export', () => {
     expect(md).toContain('  - Pairing worked _(Han)_');
     expect(md).toContain('- [x] Fix the flaky test — Luke');
     expect(md).toContain('_No cards._');
+  });
+});
+
+describe('reactions', () => {
+  const react = (cardId: string, emoji: '👍' | '🎉' = '👍'): Op => ({
+    type: 'toggleReaction',
+    cardId,
+    emoji,
+  });
+
+  it('toggles one reaction per emoji per participant', () => {
+    let board = apply(fresh(), [
+      [add('a', 'Pairing worked'), han],
+      [{ type: 'setPhase', phase: 'vote' }, owner],
+      [react('a'), luke],
+      [react('a', '🎉'), luke],
+      [react('a'), owner],
+    ]);
+    expect(board.reactions).toEqual([
+      { cardId: 'a', participantId: 'luke', emoji: '👍' },
+      { cardId: 'a', participantId: 'luke', emoji: '🎉' },
+      { cardId: 'a', participantId: 'owner', emoji: '👍' },
+    ]);
+    board = reduce(board, react('a'), luke);
+    expect(board.reactions.filter((r) => r.participantId === 'luke')).toEqual([
+      { cardId: 'a', participantId: 'luke', emoji: '🎉' },
+    ]);
+  });
+
+  it('uses the actor from the server, not anything in the op', () => {
+    const board = apply(fresh(), [
+      [add('a', 'x'), han],
+      [{ type: 'setPhase', phase: 'discuss' }, owner],
+      [{ ...react('a'), participantId: 'owner' } as unknown as Op, luke],
+    ]);
+    expect(board.reactions[0].participantId).toBe('luke');
+  });
+
+  it('only lets the author react to a card that is still blurred', () => {
+    const board = apply(fresh(), [[add('a', 'x'), han]]);
+    expect(() => reduce(board, react('a'), luke)).toThrow(/Write phase/);
+    expect(reduce(board, react('a'), han).reactions).toHaveLength(1);
+
+    const unblurred = reduce(
+      board,
+      { type: 'updateSettings', settings: { blurDuringWrite: false } },
+      owner,
+    );
+    expect(reduce(unblurred, react('a'), luke).reactions).toHaveLength(1);
+  });
+
+  it('leaves votes and their budget alone', () => {
+    const board = apply(fresh(), [
+      [add('a', 'x'), han],
+      [{ type: 'setPhase', phase: 'vote' }, owner],
+      [react('a'), luke],
+      [react('a', '🎉'), luke],
+    ]);
+    expect(votesFor(board, 'a')).toBe(0);
+    expect(votesUsed(board, 'luke')).toBe(0);
+  });
+
+  it('enforces the board-wide limit', () => {
+    let board = apply(fresh(), [
+      [add('a', 'x'), han],
+      [{ type: 'setPhase', phase: 'vote' }, owner],
+    ]);
+    board = {
+      ...board,
+      reactions: Array.from({ length: LIMITS.reactionsMax }, (_, i) => ({
+        cardId: 'a',
+        participantId: `p${i}`,
+        emoji: '👍' as const,
+      })),
+    };
+    expect(() => reduce(board, react('a'), luke)).toThrow(/reaction limit/);
+  });
+
+  it('goes with its card or column', () => {
+    const board = apply(fresh(), [
+      [add('a', 'x'), han],
+      [
+        {
+          type: 'addCard',
+          id: 'b',
+          columnId: 'col-2',
+          text: 'y',
+          anonymous: false,
+        },
+        han,
+      ],
+      [{ type: 'setPhase', phase: 'vote' }, owner],
+      [react('a'), luke],
+      [react('b'), luke],
+      [{ type: 'deleteCard', id: 'a' }, han],
+      [{ type: 'deleteColumn', id: 'col-2' }, owner],
+    ]);
+    expect(board.reactions).toEqual([]);
+  });
+
+  it('rejects emoji outside the fixed set', () => {
+    expect(
+      OpSchema.safeParse({ type: 'toggleReaction', cardId: 'a', emoji: '💩' })
+        .success,
+    ).toBe(false);
+  });
+});
+
+describe('comments', () => {
+  const comment = (
+    id: string,
+    cardId: string,
+    text: string,
+    anonymous = false,
+  ): Op => ({
+    type: 'addComment',
+    id,
+    cardId,
+    text,
+    anonymous,
+  });
+  function discussing(): Board {
+    return apply(fresh(), [
+      [add('a', 'Deploys were slow'), han],
+      [{ type: 'setPhase', phase: 'discuss' }, owner],
+    ]);
+  }
+
+  it('adds comments with the author name unless anonymous', () => {
+    const board = apply(discussing(), [
+      [comment('m1', 'a', 'The Tuesday deploy'), luke],
+      [comment('m2', 'a', 'Same for me', true), owner],
+    ]);
+    expect(board.comments).toEqual([
+      {
+        id: 'm1',
+        cardId: 'a',
+        authorId: 'luke',
+        authorName: 'Luke',
+        anonymous: false,
+        text: 'The Tuesday deploy',
+        createdAt: 5_000,
+        editedAt: null,
+      },
+      expect.objectContaining({ id: 'm2', authorName: '', anonymous: true }),
+    ]);
+  });
+
+  it('ignores duplicate deliveries', () => {
+    const board = apply(discussing(), [
+      [comment('m1', 'a', 'x'), luke],
+      [comment('m1', 'a', 'x'), luke],
+    ]);
+    expect(board.comments).toHaveLength(1);
+  });
+
+  it('follows the board anonymity setting', () => {
+    const board = reduce(
+      discussing(),
+      { type: 'updateSettings', settings: { anonymousAllowed: false } },
+      owner,
+    );
+    expect(() => reduce(board, comment('m1', 'a', 'x', true), luke)).toThrow(
+      /Anonymous comments/,
+    );
+  });
+
+  it('lets only the author edit, and the author or owner delete', () => {
+    const board = apply(discussing(), [
+      [comment('m1', 'a', 'first'), luke],
+      [comment('m2', 'a', 'second'), luke],
+    ]);
+    expect(() =>
+      reduce(board, { type: 'editComment', id: 'm1', text: 'nope' }, owner),
+    ).toThrow(/own comments/);
+    expect(() =>
+      reduce(board, { type: 'deleteComment', id: 'm1' }, han),
+    ).toThrow(/own comments/);
+
+    const edited = reduce(
+      board,
+      { type: 'editComment', id: 'm1', text: 'edited' },
+      luke,
+      9_000,
+    );
+    expect(edited.comments[0]).toMatchObject({
+      text: 'edited',
+      editedAt: 9_000,
+    });
+
+    const after = apply(edited, [
+      [{ type: 'deleteComment', id: 'm1' }, luke],
+      [{ type: 'deleteComment', id: 'm2' }, owner],
+    ]);
+    expect(after.comments).toEqual([]);
+  });
+
+  it('only lets the author comment on a card that is still blurred', () => {
+    const board = apply(fresh(), [[add('a', 'x'), han]]);
+    expect(() => reduce(board, comment('m1', 'a', 'hi'), luke)).toThrow(
+      /Write phase/,
+    );
+    expect(
+      reduce(board, comment('m1', 'a', 'note'), han).comments,
+    ).toHaveLength(1);
+  });
+
+  it('enforces per-card and per-board limits', () => {
+    let board = discussing();
+    for (let i = 0; i < LIMITS.commentsPerCardMax; i++) {
+      board = reduce(board, comment(`m${i}`, 'a', 'x'), luke);
+    }
+    expect(() => reduce(board, comment('one-more', 'a', 'x'), luke)).toThrow(
+      /card has reached/,
+    );
+
+    const full = {
+      ...discussing(),
+      comments: Array.from({ length: LIMITS.commentsMax }, (_, i) => ({
+        id: `c${i}`,
+        cardId: `elsewhere-${i}`,
+        authorId: 'luke',
+        authorName: 'Luke',
+        anonymous: false,
+        text: 'x',
+        createdAt: 0,
+        editedAt: null,
+      })),
+    };
+    expect(() => reduce(full, comment('m', 'a', 'x'), luke)).toThrow(
+      /board has reached/,
+    );
+  });
+
+  it('caps comment length in the protocol', () => {
+    const long = 'x'.repeat(LIMITS.commentTextMax + 1);
+    expect(
+      OpSchema.safeParse({
+        type: 'addComment',
+        id: 'm',
+        cardId: 'a',
+        text: long,
+        anonymous: false,
+      }).success,
+    ).toBe(false);
+  });
+
+  it('goes with its card, and follows renames', () => {
+    const board = apply(discussing(), [
+      [comment('m1', 'a', 'x'), luke],
+      [comment('m2', 'a', 'y', true), luke],
+      [
+        { type: 'setName', name: 'Skywalker' },
+        { ...luke, name: 'Skywalker' },
+      ],
+    ]);
+    expect(board.comments.map((c) => c.authorName)).toEqual(['Skywalker', '']);
+    expect(
+      reduce(board, { type: 'deleteCard', id: 'a' }, han).comments,
+    ).toEqual([]);
+  });
+});
+
+describe('upgradeBoard', () => {
+  it('fills in reactions and comments on boards stored before they existed', () => {
+    const { reactions: _r, comments: _c, ...old } = fresh();
+    const upgraded = upgradeBoard(old as Board);
+    expect(upgraded.reactions).toEqual([]);
+    expect(upgraded.comments).toEqual([]);
+  });
+});
+
+describe('export with reactions and comments', () => {
+  it('puts reaction counts on the card line and comments under it', () => {
+    const board = apply(fresh(), [
+      [add('a', 'Pairing worked'), han],
+      [add('b', 'Flaky CI'), luke],
+      [add('c', 'Retro snacks'), luke],
+      [{ type: 'groupCards', id: 'b', targetId: 'c', groupId: 'g1' }, luke],
+      [{ type: 'setPhase', phase: 'discuss' }, owner],
+      [{ type: 'vote', cardId: 'a' }, luke],
+      [{ type: 'toggleReaction', cardId: 'a', emoji: '🎉' }, luke],
+      [{ type: 'toggleReaction', cardId: 'a', emoji: '👍' }, owner],
+      [{ type: 'toggleReaction', cardId: 'a', emoji: '👍' }, luke],
+      [{ type: 'toggleReaction', cardId: 'b', emoji: '🤔' }, han],
+      [
+        {
+          type: 'addComment',
+          id: 'm1',
+          cardId: 'a',
+          text: 'Do it\nagain',
+          anonymous: false,
+        },
+        owner,
+      ],
+      [
+        {
+          type: 'addComment',
+          id: 'm2',
+          cardId: 'b',
+          text: 'Mostly Tuesday',
+          anonymous: true,
+        },
+        han,
+      ],
+    ]);
+    const md = boardToMarkdown(board, 0);
+    expect(md).toContain(
+      '- Pairing worked _(Han)_ · 1 vote · 👍 2 🎉 1\n  - 💬 Do it again _(Leia)_',
+    );
+    expect(md).toContain(
+      '  - Flaky CI _(Luke)_ · 🤔 1\n    - 💬 Mostly Tuesday\n',
+    );
   });
 });

@@ -27,13 +27,18 @@ WebSockets, and wipes itself on an alarm.
 - **Cards.** Enter posts, Shift+Enter breaks a line. Optional per-card
   anonymity. Edit and delete your own from the `⋯` menu on the card (or
   double-click to edit); the owner can delete any.
+- **Reactions and comments.** A fixed set of emoji reactions (👍 ❤️ 😂 🎉 🤔)
+  that cost no votes, and short comment threads under each card for
+  discussion context. Both are hidden on cards still blurred in Write and
+  are included in the export.
 - **Grouping.** Drag a card onto another to stack them; groups carry a
   combined vote count. Drag to an empty spot to move between columns.
 - **Timer.** 1–15 minute presets, counted down on every screen.
 - **Action items.** Text, optional owner, done checkbox. Exported with the board.
 - **Presence.** Who is here, who stepped away, who owns the board.
-- **Export.** Markdown download or copy: columns, grouped cards with votes,
-  action items. Same output from the UI and the `/export.md` endpoint.
+- **Export.** Markdown download or copy: columns, grouped cards with votes
+  and reactions, comments, action items. Same output from the UI and the
+  `/export.md` endpoint.
 - **Ownership.** The creator can rename, manage columns, lock facilitation to
   themselves, change vote budgets, and delete the board early. Ownership is a
   token in the creating browser; the server stores only its hash.
@@ -49,8 +54,8 @@ WebSockets, and wipes itself on an alarm.
   next morning; one created at 5:50 AM lives ten minutes, and the UI warns on
   create. The board header shows exactly when it goes.
 - The wipe is `storage.deleteAll()` on the board's Durable Object: cards,
-  votes, names, action items, the owner hash, and the alarm. Nothing is
-  archived. There are no backups to restore from, by design.
+  votes, reactions, comments, names, action items, the owner hash, and the
+  alarm. Nothing is archived. There are no backups to restore from, by design.
 - While a board is live, its data sits in that one Durable Object and is
   readable by anyone who has the code. **Do not put secrets on a retro board.**
 - The server keeps no accounts and no analytics. Request logs follow your
@@ -61,7 +66,8 @@ WebSockets, and wipes itself on an alarm.
   `holocron:`. Clearing site data removes them.
 
 Limits: 500 cards per board, 8 columns, 50 participants, 500 characters per
-card, 20 ops per second per connection, 10 board creations per minute per IP.
+card, 300 per comment (20 per card, 500 per board), 3,000 reactions per
+board, 20 ops per second per connection, 10 board creations per minute per IP.
 
 ## Run it yourself
 
@@ -97,7 +103,6 @@ watch a board expire during development.
 
 ## Roadmap
 
-- Reactions, card comments.
 - Turnstile on board creation if abuse shows up.
 
 ## License

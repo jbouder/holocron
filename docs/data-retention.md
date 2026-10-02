@@ -9,6 +9,9 @@
 - cards: text, author's participant id and display name (empty if anonymous),
   group membership, position, timestamp
 - votes: card id, participant id, count
+- reactions: card id, participant id, emoji (from a fixed set)
+- comments: text, card id, author's participant id and display name (empty if
+  anonymous), timestamps
 - action items: text, owner name, done flag
 - participants: id and display name
 - a SHA-256 hash of the owner token (never the token)

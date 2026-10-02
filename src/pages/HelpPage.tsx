@@ -1,5 +1,6 @@
 import { LIMITS } from '#shared/limits';
 import { TEMPLATES } from '#shared/templates';
+import { REACTIONS } from '#shared/types';
 import { Badge } from '@/components/ui/badge';
 import { linkProps } from '@/lib/router';
 import { useConfig } from '@/pages/HomePage';
@@ -145,7 +146,29 @@ export function HelpPage() {
           </p>
         </Section>
 
-        <Section id="grouping" title="Grouping and moving" index={6}>
+        <Section id="reactions" title="Reactions and comments" index={6}>
+          <p>
+            React to a card with the smiley button at its bottom right:{' '}
+            {REACTIONS.map((r) => r.emoji).join(' ')}. Each is a quick "+1" that
+            costs no votes and does not change how cards are sorted. Pick the
+            same one again, or tap its chip under the card, to take it back.
+            Hover a chip to see who reacted.
+          </p>
+          <p>
+            The speech bubble opens a card's comments, for context that comes up
+            while you discuss it ("this was the Tuesday deploy"). Comments are
+            up to {LIMITS.commentTextMax} characters,{' '}
+            {LIMITS.commentsPerCardMax} per card, and can be anonymous when the
+            board allows anonymous cards. You can edit and delete your own; the
+            owner can delete any.
+          </p>
+          <p>
+            While other people's cards are blurred in Write, you can't react to
+            or comment on them. Both open up when Write ends.
+          </p>
+        </Section>
+
+        <Section id="grouping" title="Grouping and moving" index={7}>
           <p>
             Drag a card by its handle and drop it on another card to group them.
             Groups show as a stack with a combined vote count. Drop a card on an
@@ -155,7 +178,7 @@ export function HelpPage() {
           </p>
         </Section>
 
-        <Section id="timer" title="Timer" index={7}>
+        <Section id="timer" title="Timer" index={8}>
           <p>
             The timer in the toolbar runs for everyone. Pick a length from one
             to {LIMITS.timerMaxMs / 60_000} minutes; it counts down on every
@@ -163,7 +186,7 @@ export function HelpPage() {
           </p>
         </Section>
 
-        <Section id="actions" title="Action items" index={8}>
+        <Section id="actions" title="Action items" index={9}>
           <p>
             Open the Action items panel from the toolbar (it opens itself when
             you enter Discuss). Add an item, name an owner, and tick it off when
@@ -171,16 +194,17 @@ export function HelpPage() {
           </p>
         </Section>
 
-        <Section id="export" title="Export" index={9}>
+        <Section id="export" title="Export" index={10}>
           <p>
             Export gives you the board as Markdown: every column, grouped cards
-            with their vote counts, and the action items. Download it or copy it
-            to the clipboard and paste it into your wiki or chat. Do this before
-            the board expires; there is no later.
+            with their vote and reaction counts, comments under their card, and
+            the action items. Download it or copy it to the clipboard and paste
+            it into your wiki or chat. Do this before the board expires; there
+            is no later.
           </p>
         </Section>
 
-        <Section id="ownership" title="Ownership and deleting" index={10}>
+        <Section id="ownership" title="Ownership and deleting" index={11}>
           <p>
             Whoever creates a board owns it. The owner can change settings,
             manage columns, delete any card and delete the whole board.
@@ -193,15 +217,15 @@ export function HelpPage() {
           </p>
         </Section>
 
-        <Section id="data" title="Data and retention" index={11}>
+        <Section id="data" title="Data and retention" index={12}>
           <p>
             <strong className="text-foreground">
               Every board is wiped daily at {resetLabel}.
             </strong>{' '}
-            Cards, votes, names, action items, the lot. A board created at 11 PM
-            lives until the next morning; one created at 5:50 AM lives ten
-            minutes (the create button warns you). The board header shows
-            exactly when yours goes.
+            Cards, votes, reactions, comments, names, action items, the lot. A
+            board created at 11 PM lives until the next morning; one created at
+            5:50 AM lives ten minutes (the create button warns you). The board
+            header shows exactly when yours goes.
           </p>
           <p>
             While a board is live, its data is stored on the server that runs
@@ -216,7 +240,7 @@ export function HelpPage() {
           </p>
         </Section>
 
-        <Section id="shortcuts" title="Keyboard" index={12}>
+        <Section id="shortcuts" title="Keyboard" index={13}>
           <ul className="grid gap-1.5">
             <li>
               <Kbd>Enter</Kbd> post the card you are typing
@@ -234,12 +258,16 @@ export function HelpPage() {
               <Kbd>Esc</Kbd> cancel an edit
             </li>
             <li>
+              <Kbd>Enter</Kbd> post a comment, <Kbd>Shift</Kbd>+<Kbd>Enter</Kbd>{' '}
+              for a new line
+            </li>
+            <li>
               <Kbd>?</Kbd> open this page from a board
             </li>
           </ul>
         </Section>
 
-        <Section id="preferences" title="Preferences" index={13}>
+        <Section id="preferences" title="Preferences" index={14}>
           <p>
             The gear icon holds a motion switch, the theme, and your name.
             Themes: System (follows your device), Light, Dark (side), and three
@@ -271,6 +299,7 @@ const SECTIONS = [
   { id: 'name', title: 'Your name' },
   { id: 'phases', title: 'Phases' },
   { id: 'cards', title: 'Cards' },
+  { id: 'reactions', title: 'Reactions and comments' },
   { id: 'grouping', title: 'Grouping' },
   { id: 'timer', title: 'Timer' },
   { id: 'actions', title: 'Action items' },

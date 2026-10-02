@@ -9,12 +9,13 @@ import {
 } from '@phosphor-icons/react';
 import {
   type PointerEvent as ReactPointerEvent,
+  useId,
   useRef,
   useState,
 } from 'react';
 import { LIMITS } from '#shared/limits';
 import type { Op, You } from '#shared/protocol';
-import { votesUsed } from '#shared/reducer';
+import { isCardHidden, votesUsed } from '#shared/reducer';
 import type { Board, Card } from '#shared/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -34,6 +35,8 @@ import type { useCardDrag } from '@/hooks/useCardDrag';
 import { animateOut } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import { useMotion } from '@/providers/MotionProvider';
+import { CommentThread, CommentToggle, commentsOn } from './CardComments';
+import { ReactionChips, ReactionPicker } from './CardReactions';
 
 const DOUBLE_TAP_MS = 300;
 const DOUBLE_TAP_SLOP = 24;
@@ -65,8 +68,10 @@ export function CardView({
   const mine = card.authorId === you.id;
   const canEdit = mine || you.isOwner;
   const canArrange = canEdit || !board.settings.facilitatorOnly || you.isOwner;
-  const blurred =
-    board.phase === 'write' && board.settings.blurDuringWrite && !mine;
+  const blurred = isCardHidden(board, card, you.id);
+  const [threadOpen, setThreadOpen] = useState(false);
+  const threadId = useId();
+  const commentCount = commentsOn(board, card).length;
   const votingOpen = board.phase !== 'write';
   const myVotes =
     board.votes.find((v) => v.cardId === card.id && v.participantId === you.id)
@@ -248,6 +253,15 @@ export function CardView({
         )}
       </div>
 
+      {!blurred && (
+        <ReactionChips
+          board={board}
+          card={card}
+          you={you}
+          dispatch={dispatch}
+        />
+      )}
+
       <footer className="mt-2 flex items-center justify-between gap-2">
         <span className="min-w-0 truncate text-xs text-muted-foreground">
           {card.anonymous ? 'Anonymous' : card.authorName}
@@ -259,54 +273,84 @@ export function CardView({
           )}
         </span>
 
-        {votingOpen && (
-          <div className="flex items-center gap-0.5">
-            {myVotes > 0 && (
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                aria-label="Remove one of your votes"
-                className="press text-muted-foreground"
-                onClick={() => dispatch({ type: 'unvote', cardId: card.id })}
-              >
-                <MinusIcon />
-              </Button>
-            )}
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    variant={myVotes > 0 ? 'secondary' : 'ghost'}
-                    size="xs"
-                    className="press tabular"
-                    aria-label={`Vote. ${votes} ${votes === 1 ? 'vote' : 'votes'}${myVotes ? `, ${myVotes} yours` : ''}`}
-                    disabled={votesLeft <= 0}
-                    onClick={() => dispatch({ type: 'vote', cardId: card.id })}
-                  />
-                }
-              >
-                <ArrowFatUpIcon
-                  weight={myVotes > 0 ? 'fill' : 'regular'}
-                  data-icon="inline-start"
-                />
-                <span
-                  key={votes}
-                  className={cn('count', myVotes > 0 && 'vote-pop')}
+        <div className="flex shrink-0 items-center gap-0.5">
+          {!blurred && (
+            <>
+              <ReactionPicker
+                board={board}
+                card={card}
+                you={you}
+                dispatch={dispatch}
+              />
+              <CommentToggle
+                count={commentCount}
+                open={threadOpen}
+                controls={threadId}
+                onToggle={() => setThreadOpen((o) => !o)}
+              />
+            </>
+          )}
+          {votingOpen && (
+            <div className="flex items-center gap-0.5">
+              {myVotes > 0 && (
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label="Remove one of your votes"
+                  className="press text-muted-foreground"
+                  onClick={() => dispatch({ type: 'unvote', cardId: card.id })}
                 >
-                  {votes}
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>
-                {votesLeft > 0
-                  ? `Vote (${votesLeft} left)`
-                  : myVotes > 0
-                    ? 'No votes left. Use − to take one back.'
-                    : 'No votes left'}
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        )}
+                  <MinusIcon />
+                </Button>
+              )}
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant={myVotes > 0 ? 'secondary' : 'ghost'}
+                      size="xs"
+                      className="press tabular"
+                      aria-label={`Vote. ${votes} ${votes === 1 ? 'vote' : 'votes'}${myVotes ? `, ${myVotes} yours` : ''}`}
+                      disabled={votesLeft <= 0}
+                      onClick={() =>
+                        dispatch({ type: 'vote', cardId: card.id })
+                      }
+                    />
+                  }
+                >
+                  <ArrowFatUpIcon
+                    weight={myVotes > 0 ? 'fill' : 'regular'}
+                    data-icon="inline-start"
+                  />
+                  <span
+                    key={votes}
+                    className={cn('count', myVotes > 0 && 'vote-pop')}
+                  >
+                    {votes}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {votesLeft > 0
+                    ? `Vote (${votesLeft} left)`
+                    : myVotes > 0
+                      ? 'No votes left. Use − to take one back.'
+                      : 'No votes left'}
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          )}
+        </div>
       </footer>
+
+      {threadOpen && !blurred && (
+        <CommentThread
+          id={threadId}
+          board={board}
+          card={card}
+          you={you}
+          dispatch={dispatch}
+        />
+      )}
     </article>
   );
 }

@@ -8,6 +8,11 @@ export const LIMITS = {
   cardsMax: 500,
   columnsMax: 8,
   actionItemsMax: 100,
+  /** Reactions across the whole board (each is one emoji by one person). */
+  reactionsMax: 3000,
+  commentTextMax: 300,
+  commentsPerCardMax: 20,
+  commentsMax: 500,
   participantsMax: 50,
   votesPerPersonMin: 1,
   votesPerPersonMax: 20,
