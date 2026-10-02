@@ -112,6 +112,51 @@ delete the Worker (Dashboard → Workers & Pages → holocron → Settings →
 Delete), which also deletes the Durable Object namespace and all its storage.
 Redeploying starts clean.
 
+## Turnstile on board creation (optional)
+
+Creating a board needs no account, so the only guard by default is the
+per-IP rate limit (10 boards a minute, `CREATE_LIMITER` in `wrangler.jsonc`).
+If you see abuse from many addresses, require a
+[Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/) check
+on the home page's Create button. Joining a board is never affected.
+
+1. Dashboard → Turnstile → Add widget. Add your hostname (and `localhost` if
+   you want it in development), mode **Managed**. Copy the site key and the
+   secret key.
+2. Put the site key in `wrangler.jsonc`:
+
+   ```jsonc
+   "vars": {
+     // ...
+     "TURNSTILE_SITE_KEY": "0x4AAAAAAA..."
+   }
+   ```
+
+3. Store the secret as a Worker secret (it is never committed):
+
+   ```bash
+   npx wrangler secret put TURNSTILE_SECRET_KEY
+   ```
+
+4. `npm run deploy`.
+
+Turnstile is on only when **both** are set; with either one missing, board
+creation works exactly as without it. When on, the Worker redeems the token
+with Siteverify before creating the board and checks the action
+(`create-board`) and that the hostname is the one the request came to. A
+missing token is a 400, a failed check a 403, and Siteverify being
+unreachable a 503; all three stop the board from being created. The IP rate
+limit still runs first.
+
+To try it locally, use Cloudflare's always-pass
+[test keys](https://developers.cloudflare.com/turnstile/troubleshooting/testing/)
+in `.dev.vars` (see `.dev.vars.example`). To turn it off again, set
+`TURNSTILE_SITE_KEY` back to `""` and redeploy, or delete the secret.
+
+Turnstile is a Cloudflare service: when it is on, the home page loads its
+script from `challenges.cloudflare.com` and visitors who create a board are
+checked by it. See [data-retention.md](data-retention.md).
+
 ## Limits you may want to change
 
 All in `shared/limits.ts`: cards per board, columns, participants, card

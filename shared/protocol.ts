@@ -149,12 +149,17 @@ export interface CreateBoardResponse {
   expiresAt: number;
 }
 
+/** The Turnstile action for board creation; Siteverify must echo it back. */
+export const TURNSTILE_ACTION = 'create-board';
+
 /** Deployment-wide facts the UI shows (the Help page, the home footer). */
 export interface AppConfig {
   resetTimeZone: string;
   resetHour: number;
   /** e.g. "6:00 AM EDT" */
   resetLabel: string;
+  /** Set when board creation requires a Turnstile check. */
+  turnstileSiteKey: string | null;
 }
 
 export interface BoardMeta {

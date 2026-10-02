@@ -34,6 +34,8 @@ export function createBoard(input: {
   templateId: string;
   participantId: string;
   name: string;
+  /** Only sent when the deployment requires a Turnstile check. */
+  turnstileToken?: string;
 }): Promise<CreateBoardResponse> {
   return request('/api/boards', {
     method: 'POST',
