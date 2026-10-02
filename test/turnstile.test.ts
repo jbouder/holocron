@@ -49,10 +49,12 @@ async function config(bindings: Bindings): Promise<AppConfig> {
   return response.json();
 }
 
+// A fresh Response per call: a body can only be read once, so a shared one
+// would make every Siteverify call after the first fail closed.
 function stubSiteverify(body: unknown, status = 200) {
   return vi
     .spyOn(globalThis, 'fetch')
-    .mockResolvedValue(Response.json(body, { status }));
+    .mockImplementation(async () => Response.json(body, { status }));
 }
 
 const PASS = {
@@ -170,8 +172,14 @@ describe('Turnstile enabled', () => {
         }) as Request<unknown, IncomingRequestCfProperties>,
         enabled,
       );
+    // CREATE_LIMITER allows 10 per minute (wrangler.jsonc). The local limiter
+    // counts in windows aligned to the wall clock, so a run that straddles a
+    // minute boundary splits its requests across two windows. Sending twice
+    // the limit plus one guarantees one window overflows wherever the
+    // boundary falls.
+    const limit = 10;
     const statuses: number[] = [];
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 2 * limit + 1; i++) {
       statuses.push((await request()).status);
     }
     expect(statuses).toContain(429);
