@@ -45,6 +45,45 @@ export interface Vote {
   count: number;
 }
 
+/**
+ * The fixed reaction set. No free-form emoji: a short list keeps reactions a
+ * quick signal and the document small.
+ */
+export const REACTIONS = [
+  { emoji: '👍', label: 'Thumbs up' },
+  { emoji: '❤️', label: 'Heart' },
+  { emoji: '😂', label: 'Laughing' },
+  { emoji: '🎉', label: 'Party' },
+  { emoji: '🤔', label: 'Thinking' },
+] as const;
+
+export type ReactionEmoji = (typeof REACTIONS)[number]['emoji'];
+
+export const REACTION_EMOJI = REACTIONS.map((r) => r.emoji) as [
+  ReactionEmoji,
+  ...ReactionEmoji[],
+];
+
+/** One participant's reaction to a card. Separate from votes. */
+export interface Reaction {
+  cardId: string;
+  participantId: string;
+  emoji: ReactionEmoji;
+}
+
+export interface Comment {
+  id: string;
+  cardId: string;
+  authorId: string;
+  /** Snapshot of the author's name. Empty when anonymous. */
+  authorName: string;
+  anonymous: boolean;
+  text: string;
+  createdAt: number;
+  /** Set when the author edits it. */
+  editedAt: number | null;
+}
+
 export interface ActionItem {
   id: string;
   text: string;
@@ -80,6 +119,8 @@ export interface Board {
   columns: Column[];
   cards: Card[];
   votes: Vote[];
+  reactions: Reaction[];
+  comments: Comment[];
   actionItems: ActionItem[];
   participants: Participant[];
 }

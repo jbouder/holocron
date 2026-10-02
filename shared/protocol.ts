@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { LIMITS } from './limits';
-import type { Board, Participant } from './types';
+import { type Board, type Participant, REACTION_EMOJI } from './types';
 
 /**
  * Everything that crosses the WebSocket, validated with zod on the server and
@@ -43,6 +43,25 @@ export const OpSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('ungroupCard'), id }),
   z.object({ type: z.literal('vote'), cardId: id }),
   z.object({ type: z.literal('unvote'), cardId: id }),
+  /** Adds the actor's reaction, or removes it if they already reacted. */
+  z.object({
+    type: z.literal('toggleReaction'),
+    cardId: id,
+    emoji: z.enum(REACTION_EMOJI),
+  }),
+  z.object({
+    type: z.literal('addComment'),
+    id,
+    cardId: id,
+    text: text(LIMITS.commentTextMax),
+    anonymous: z.boolean(),
+  }),
+  z.object({
+    type: z.literal('editComment'),
+    id,
+    text: text(LIMITS.commentTextMax),
+  }),
+  z.object({ type: z.literal('deleteComment'), id }),
   z.object({
     type: z.literal('setPhase'),
     phase: z.enum(['write', 'vote', 'discuss']),

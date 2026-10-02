@@ -1,9 +1,9 @@
 import { cardsInColumn, votesFor } from './reducer';
-import type { Board, Card } from './types';
+import { type Board, type Card, REACTIONS } from './types';
 
 /**
  * Markdown export of a board: columns in order, groups as nested lists,
- * vote counts, then action items. Used by the server endpoint and by the
+ * vote and reaction counts, comments under their card, then action items. Used by the server endpoint and by the
  * "copy as Markdown" button, so both produce the same text.
  */
 export function boardToMarkdown(board: Board, now = Date.now()): string {
@@ -30,6 +30,7 @@ export function boardToMarkdown(board: Board, now = Date.now()): string {
     for (const card of cards) {
       if (card.groupId === null) {
         lines.push(`- ${cardLine(board, card)}`);
+        lines.push(...commentLines(board, card, '  '));
         continue;
       }
       if (seenGroups.has(card.groupId)) {
@@ -41,6 +42,7 @@ export function boardToMarkdown(board: Board, now = Date.now()): string {
       lines.push(`- **Group** ${voteBadge(total)}`);
       for (const member of members) {
         lines.push(`  - ${cardLine(board, member, false)}`);
+        lines.push(...commentLines(board, member, '    '));
       }
     }
     lines.push('');
@@ -61,9 +63,50 @@ export function boardToMarkdown(board: Board, now = Date.now()): string {
 }
 
 function cardLine(board: Board, card: Card, withVotes = true): string {
-  const author = card.anonymous ? '' : ` _(${card.authorName})_`;
-  const votes = withVotes ? ` ${voteBadge(votesFor(board, card.id))}` : '';
-  return `${card.text.replace(/\s*\n\s*/g, ' ')}${author}${votes}`.trimEnd();
+  const parts = [oneLine(card.text)];
+  if (!card.anonymous) {
+    parts.push(`_(${card.authorName})_`);
+  }
+  const votes = withVotes ? voteBadge(votesFor(board, card.id)) : '';
+  if (votes) {
+    parts.push(votes);
+  }
+  const reactions = reactionBadge(board, card.id);
+  if (reactions) {
+    parts.push(reactions);
+  }
+  return parts.join(' ');
+}
+
+function commentLines(board: Board, card: Card, indent: string): string[] {
+  return board.comments
+    .filter((c) => c.cardId === card.id)
+    .sort((a, b) => a.createdAt - b.createdAt)
+    .map((c) => {
+      const author = c.anonymous ? '' : ` _(${c.authorName})_`;
+      return `${indent}- 💬 ${oneLine(c.text)}${author}`;
+    });
+}
+
+/** e.g. "· 👍 3 🎉 1", in the fixed reaction order; empty when none. */
+function reactionBadge(board: Board, cardId: string): string {
+  const parts: string[] = [];
+  for (const { emoji } of REACTIONS) {
+    let count = 0;
+    for (const r of board.reactions) {
+      if (r.cardId === cardId && r.emoji === emoji) {
+        count += 1;
+      }
+    }
+    if (count > 0) {
+      parts.push(`${emoji} ${count}`);
+    }
+  }
+  return parts.length > 0 ? `· ${parts.join(' ')}` : '';
+}
+
+function oneLine(text: string): string {
+  return text.replace(/\s*\n\s*/g, ' ');
 }
 
 function voteBadge(count: number): string {

@@ -8,7 +8,7 @@ import {
   type ServerMessage,
   type You,
 } from '#shared/protocol';
-import { createBoard, OpError, reduce } from '#shared/reducer';
+import { createBoard, OpError, reduce, upgradeBoard } from '#shared/reducer';
 import type { Actor, Board } from '#shared/types';
 import type { Bindings } from './env';
 
@@ -78,7 +78,7 @@ export class BoardObject extends DurableObject<Bindings> {
       .exec<Row>('SELECT json, seq, owner_hash FROM board WHERE id = 1')
       .toArray()[0];
     if (row) {
-      this.board = JSON.parse(row.json) as Board;
+      this.board = upgradeBoard(JSON.parse(row.json) as Board);
       this.seq = row.seq;
       this.ownerHash = row.owner_hash;
     }

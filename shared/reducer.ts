@@ -5,6 +5,7 @@ import {
   type Actor,
   type Board,
   type Card,
+  type Comment,
   DEFAULT_SETTINGS,
   type Settings,
 } from './types';
@@ -58,8 +59,22 @@ export function createBoard(input: CreateBoardInput): Board {
     })),
     cards: [],
     votes: [],
+    reactions: [],
+    comments: [],
     actionItems: [],
     participants: [{ id: input.ownerId, name: input.ownerName, online: false }],
+  };
+}
+
+/**
+ * Fill in fields added after a board was stored, so a board created before
+ * a deploy keeps working after it. Run on every document read from storage.
+ */
+export function upgradeBoard(board: Board): Board {
+  return {
+    ...board,
+    reactions: board.reactions ?? [],
+    comments: board.comments ?? [],
   };
 }
 
@@ -82,6 +97,24 @@ function findCard(board: Board, id: string): Card {
 /** Edit and delete: the author or the owner. */
 function canEditCard(card: Card, actor: Actor): boolean {
   return card.authorId === actor.id || actor.isOwner;
+}
+
+/**
+ * During Write, with blurring on, only the author can read a card, so only
+ * the author can react to it or comment on it. The UI hides both too.
+ */
+export function isCardHidden(board: Board, card: Card, viewerId: string) {
+  return (
+    board.phase === 'write' &&
+    board.settings.blurDuringWrite &&
+    card.authorId !== viewerId
+  );
+}
+
+function findComment(board: Board, id: string): Comment {
+  return (
+    board.comments.find((c) => c.id === id) ?? fail('That comment is gone')
+  );
 }
 
 /** Move, group, ungroup: anyone, unless the owner locked facilitation. */
@@ -217,6 +250,8 @@ export function reduce(
         ...board,
         cards: board.cards.filter((c) => c.id !== op.id),
         votes: board.votes.filter((v) => v.cardId !== op.id),
+        reactions: board.reactions.filter((r) => r.cardId !== op.id),
+        comments: board.comments.filter((c) => c.cardId !== op.id),
       };
     }
 
@@ -373,6 +408,96 @@ export function reduce(
       };
     }
 
+    case 'toggleReaction': {
+      const card = findCard(board, op.cardId);
+      if (isCardHidden(board, card, actor.id)) {
+        fail('Reactions open when the Write phase ends');
+      }
+      const mine = (r: Board['reactions'][number]) =>
+        r.cardId === op.cardId &&
+        r.participantId === actor.id &&
+        r.emoji === op.emoji;
+      if (board.reactions.some(mine)) {
+        return {
+          ...board,
+          reactions: board.reactions.filter((r) => !mine(r)),
+        };
+      }
+      if (board.reactions.length >= LIMITS.reactionsMax) {
+        fail('This board has reached its reaction limit');
+      }
+      return {
+        ...board,
+        reactions: [
+          ...board.reactions,
+          { cardId: op.cardId, participantId: actor.id, emoji: op.emoji },
+        ],
+      };
+    }
+
+    case 'addComment': {
+      if (board.comments.some((c) => c.id === op.id)) {
+        return board; // duplicate delivery
+      }
+      const card = findCard(board, op.cardId);
+      if (isCardHidden(board, card, actor.id)) {
+        fail('Comments open when the Write phase ends');
+      }
+      if (op.anonymous && !board.settings.anonymousAllowed) {
+        fail('Anonymous comments are off for this board');
+      }
+      if (board.comments.length >= LIMITS.commentsMax) {
+        fail('This board has reached its comment limit');
+      }
+      const onCard = board.comments.filter((c) => c.cardId === card.id);
+      if (onCard.length >= LIMITS.commentsPerCardMax) {
+        fail('This card has reached its comment limit');
+      }
+      return {
+        ...board,
+        comments: [
+          ...board.comments,
+          {
+            id: op.id,
+            cardId: card.id,
+            authorId: actor.id,
+            authorName: op.anonymous ? '' : actor.name,
+            anonymous: op.anonymous,
+            text: op.text,
+            createdAt: now,
+            editedAt: null,
+          },
+        ],
+      };
+    }
+
+    case 'editComment': {
+      const comment = findComment(board, op.id);
+      if (comment.authorId !== actor.id) {
+        fail('You can only edit your own comments');
+      }
+      return {
+        ...board,
+        comments: board.comments.map((c) =>
+          c.id === op.id ? { ...c, text: op.text, editedAt: now } : c,
+        ),
+      };
+    }
+
+    case 'deleteComment': {
+      const comment = board.comments.find((c) => c.id === op.id);
+      if (!comment) {
+        return board;
+      }
+      if (comment.authorId !== actor.id && !actor.isOwner) {
+        fail('You can only delete your own comments');
+      }
+      return {
+        ...board,
+        comments: board.comments.filter((c) => c.id !== op.id),
+      };
+    }
+
     case 'setPhase': {
       requireFacilitator(board, actor);
       return { ...board, phase: op.phase };
@@ -436,6 +561,8 @@ export function reduce(
           .map((c, i) => ({ ...c, position: i })),
         cards: board.cards.filter((c) => !removed.has(c.id)),
         votes: board.votes.filter((v) => !removed.has(v.cardId)),
+        reactions: board.reactions.filter((r) => !removed.has(r.cardId)),
+        comments: board.comments.filter((c) => !removed.has(c.cardId)),
       };
     }
 
@@ -503,13 +630,18 @@ export function reduce(
 
     case 'setName': {
       // `withParticipant` already synced the actor's name from the socket;
-      // this also rewrites the name on their non-anonymous cards.
+      // this also rewrites the name on their non-anonymous cards and comments.
       return {
         ...board,
         participants: board.participants.map((p) =>
           p.id === actor.id ? { ...p, name: op.name } : p,
         ),
         cards: board.cards.map((c) =>
+          c.authorId === actor.id && !c.anonymous
+            ? { ...c, authorName: op.name }
+            : c,
+        ),
+        comments: board.comments.map((c) =>
           c.authorId === actor.id && !c.anonymous
             ? { ...c, authorName: op.name }
             : c,
