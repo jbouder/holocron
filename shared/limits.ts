@@ -16,3 +16,5 @@ export const LIMITS = {
   /** Ops a single socket may send per second before being dropped. */
   opsPerSecond: 20,
 } as const;
+
+export  const   lintFailureDemo = "x" ;var unused = 1
