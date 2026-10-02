@@ -25,7 +25,8 @@ WebSockets, and wipes itself on an alarm.
   person spends a budget of dot votes (default 5, several per card allowed).
   In *Discuss*, columns sort by votes and the action items panel opens.
 - **Cards.** Enter posts, Shift+Enter breaks a line. Optional per-card
-  anonymity. Edit and delete your own; the owner can delete any.
+  anonymity. Edit and delete your own from the `⋯` menu on the card (or
+  double-click to edit); the owner can delete any.
 - **Grouping.** Drag a card onto another to stack them; groups carry a
   combined vote count. Drag to an empty spot to move between columns.
 - **Timer.** 1–15 minute presets, counted down on every screen.
