@@ -46,6 +46,8 @@ interface Attachment {
   id: string;
   name: string;
   isOwner: boolean;
+  /** When the socket joined, for replacing a participant's oldest tab. */
+  openedAt?: number;
 }
 
 export interface CreateInput {
@@ -99,6 +101,11 @@ export class BoardObject extends DurableObject<Bindings> {
   private handoffMisses: number[] = [];
   /** Per-socket timestamps of recent ops, for the flood limit. */
   private recent = new WeakMap<WebSocket, number[]>();
+  /**
+   * The newest socket's `openedAt`. Lost on hibernation, which is harmless:
+   * the clock has moved on by the time the object wakes.
+   */
+  private lastOpenedAt = 0;
 
   constructor(ctx: DurableObjectState, env: Bindings) {
     super(ctx, env);
@@ -400,23 +407,42 @@ export class BoardObject extends DurableObject<Bindings> {
     const isOwner =
       token !== null && sameHash(await sha256(token), this.ownerHash);
 
-    // Counted before this socket joins them. The board cap never shuts the
-    // owner out: a crowd of tabs must not stop them running (or ending) the
-    // retro. Their own tab cap still applies.
+    // Counted before this socket joins them, and only sockets still open:
+    // one this object already closed may linger until its peer answers.
     const open = this.ctx
       .getWebSockets()
-      .map((ws) => ws.deserializeAttachment() as Attachment | null);
-    const crowded =
-      open.length >= LIMITS.socketsMax && !isOwner
-        ? 'full'
-        : open.filter((a) => a?.id === id).length >=
-            LIMITS.socketsPerParticipant
-          ? 'tabs'
-          : null;
+      .filter((ws) => ws.readyState === WebSocket.READY_STATE_OPEN);
+    // Past the tab cap the newest tab wins: the participant's oldest
+    // sockets make way. After a network cut the server may still hold every
+    // old socket, half-open and unnoticed, so refusing the newcomer would
+    // shut out someone with fewer live tabs than the cap.
+    const mine = open
+      .filter((ws) => this.attachmentOf(ws)?.id === id)
+      .sort(
+        (a, b) =>
+          (this.attachmentOf(a)?.openedAt ?? 0) -
+          (this.attachmentOf(b)?.openedAt ?? 0),
+      );
+    const replaced = mine.slice(
+      0,
+      Math.max(0, mine.length - LIMITS.socketsPerParticipant + 1),
+    );
+    // The board cap never shuts the owner out: a crowd of tabs must not stop
+    // them running (or ending) the retro. Tabs this join replaces don't
+    // count against it.
+    const full = open.length - replaced.length >= LIMITS.socketsMax && !isOwner;
 
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
-    const attachment: Attachment = { id, name, isOwner };
+    // Strictly increasing: the runtime's clock can stand still across joins
+    // that come in quick succession, and ties would hide which tab is oldest.
+    this.lastOpenedAt = Math.max(Date.now(), this.lastOpenedAt + 1);
+    const attachment: Attachment = {
+      id,
+      name,
+      isOwner,
+      openedAt: this.lastOpenedAt,
+    };
     server.serializeAttachment(attachment);
     this.ctx.acceptWebSocket(server);
 
@@ -432,8 +458,8 @@ export class BoardObject extends DurableObject<Bindings> {
     // id cannot both bind.
 
     // The close reasons are what the client keys on (it stops retrying).
-    if (crowded) {
-      server.close(1008, crowded);
+    if (full) {
+      server.close(1008, 'full');
       return new Response(null, { status: 101, webSocket: client });
     }
 
@@ -484,6 +510,17 @@ export class BoardObject extends DurableObject<Bindings> {
     }
     if (secretsChanged) {
       await this.ctx.storage.put(SECRETS_KEY, this.secrets);
+    }
+
+    // Only once this socket is in: a refused join replaces nothing. The
+    // replaced tab stops retrying, so two tabs never take turns evicting
+    // each other.
+    for (const ws of replaced) {
+      try {
+        ws.close(1008, 'replaced');
+      } catch {
+        // Already closing.
+      }
     }
 
     this.sendSnapshot(server, actor);
@@ -698,6 +735,10 @@ export class BoardObject extends DurableObject<Bindings> {
         (p) => !online.has(p.id) && canReleaseSeat(board, p.id),
       )?.id ?? null
     );
+  }
+
+  private attachmentOf(ws: WebSocket): Attachment | null {
+    return ws.deserializeAttachment() as Attachment | null;
   }
 
   private actorFor(attachment: Attachment): Actor {

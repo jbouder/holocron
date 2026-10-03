@@ -1190,16 +1190,65 @@ describe('crowded boards', () => {
     expect(mine.you.anonymousCardIds).toEqual(['anon']);
   });
 
-  it('caps the tabs one participant can open', async () => {
+  it('lets the newest tab in past the tab cap, replacing the oldest', async () => {
     const created = await createBoard();
+    const tabs: Client[] = [];
     for (let i = 0; i < LIMITS.socketsPerParticipant; i++) {
       const tab = await join(created.code, 'han', 'Han');
       await tab.next('snapshot');
+      tabs.push(tab);
     }
+    // After a network cut the server may still hold every old socket; the
+    // reconnecting tab must get in all the same.
+    const oldest = closeOf(tabs[0]);
     const extra = await join(created.code, 'han', 'Han');
-    const closed = await closeOf(extra);
+    const snapshot = await extra.next('snapshot');
+    expect(snapshot.you.id).toBe('han');
+    const closed = await oldest;
     expect(closed.code).toBe(1008);
-    expect(closed.reason).toBe('tabs');
+    expect(closed.reason).toBe('replaced');
+
+    // Only the oldest went: the others still get echoes.
+    const before = tabs[1].messages.length;
+    extra.send({
+      type: 'addCard',
+      id: 'c',
+      columnId: 'col-1',
+      text: 'Still here',
+      anonymous: false,
+    });
+    await tabs[1].next('op', before);
+    await runInDurableObject(
+      stubFor(created.code),
+      async (_instance, state) => {
+        const open = state
+          .getWebSockets()
+          .filter((ws) => ws.readyState === WebSocket.READY_STATE_OPEN);
+        expect(open).toHaveLength(LIMITS.socketsPerParticipant);
+      },
+    );
+  });
+
+  it('replaces nothing for a join it turns away', async () => {
+    const created = await createBoard();
+    const tabs: Client[] = [];
+    for (let i = 0; i < LIMITS.socketsPerParticipant; i++) {
+      const tab = await join(created.code, 'han', 'Han');
+      await tab.next('snapshot');
+      tabs.push(tab);
+    }
+    // Han's id from another browser is an impostor: Han keeps every tab.
+    const impostor = await join(created.code, 'han', 'Han', undefined, 'nope');
+    expect((await closeOf(impostor)).reason).toBe('identity');
+    const before = tabs[0].messages.length;
+    tabs[4].send({
+      type: 'addCard',
+      id: 'c',
+      columnId: 'col-1',
+      text: 'Still here',
+      anonymous: false,
+    });
+    await tabs[0].next('op', before);
   });
 
   it('caps sockets per board, but never shuts the owner out', async () => {
@@ -1217,6 +1266,10 @@ describe('crowded boards', () => {
     const closed = await closeOf(late);
     expect(closed.code).toBe(1008);
     expect(closed.reason).toBe('full');
+
+    // Someone already in, past their own tab cap, swaps a tab for a tab.
+    const swap = await join(created.code, 'p0', 'P0');
+    expect((await swap.next('snapshot')).you.id).toBe('p0');
 
     const owner = await join(
       created.code,
