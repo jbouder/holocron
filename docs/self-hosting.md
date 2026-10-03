@@ -131,7 +131,9 @@ packages (through `package.json` and `bun.lock`) and the GitHub Actions the
 workflows use. Minor and patch bumps are grouped into one PR per ecosystem;
 each major version gets its own. They are ordinary PRs, so they run `check`
 and never deploy (Dependabot runs don't see repository secrets, so they get
-no preview either). Nothing merges automatically.
+no preview either). Nothing merges automatically. Actions are pinned to
+commit SHAs with the version in a trailing comment; Dependabot updates both,
+so review that they still match when you merge one (see `docs/security.md`).
 
 On a fork, Dependabot version updates follow this file once you enable them
 under Settings → Code security. Turn on Dependabot alerts and security
