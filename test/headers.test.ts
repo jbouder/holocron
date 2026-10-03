@@ -7,11 +7,12 @@ import worker from '../worker/index';
 
 /** The value of one header in public/_headers (all rules are under /*). */
 function header(name: string): string {
-  const line = headers
+  const lines = headers
     .split('\n')
-    .find((l) => l.trim().toLowerCase().startsWith(`${name.toLowerCase()}:`));
-  expect(line, `${name} in public/_headers`).toBeDefined();
-  return line ? line.slice(line.indexOf(':') + 1).trim() : '';
+    .filter((l) => l.trim().toLowerCase().startsWith(`${name.toLowerCase()}:`));
+  expect(lines, `${name} in public/_headers`).toHaveLength(1);
+  const line = lines[0] ?? '';
+  return line.slice(line.indexOf(':') + 1).trim();
 }
 
 function directive(csp: string, name: string): string[] {
@@ -32,6 +33,15 @@ async function sha256(text: string): Promise<string> {
 }
 
 describe('static asset headers', () => {
+  it('is a well-formed _headers file', () => {
+    // Comments, blank lines, one path rule, and `Name: value` lines. Anything
+    // else (a stray conflict marker, say) ships to every visitor.
+    for (const line of headers.split('\n')) {
+      if (line === '' || line.startsWith('#')) continue;
+      expect(line, line).toMatch(/^(\/\S*|\s+[A-Za-z-]+: \S.*)$/);
+    }
+  });
+
   const csp = header('Content-Security-Policy');
 
   it('allows every inline script in index.html by hash, and nothing else inline', async () => {
