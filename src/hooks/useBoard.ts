@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Op, ServerMessage, You } from '#shared/protocol';
+import type { ClientMessage, Op, ServerMessage, You } from '#shared/protocol';
 import { OpError, reduce } from '#shared/reducer';
 import type { Actor, Board } from '#shared/types';
 import { socketUrl } from '@/lib/api';
@@ -105,12 +105,20 @@ export function useBoard(
         return;
       }
       const token = ownerTokenRef.current;
-      const ws = new WebSocket(socketUrl(code, identity, token));
+      const ws = new WebSocket(socketUrl(code, identity));
       socket.current = ws;
 
       ws.addEventListener('open', () => {
         attempts.current = 0;
         setStatus('open');
+        // The credentials go first, never on the URL. The server holds
+        // anything sent behind this until it has seated us.
+        const hello: ClientMessage = {
+          type: 'hello',
+          secret: identity.secret,
+          ...(token ? { token } : {}),
+        };
+        ws.send(JSON.stringify(hello));
         // Replay anything the previous socket did not get to confirm.
         for (const p of pendingRef.current) {
           ws.send(JSON.stringify({ type: 'op', opId: p.opId, op: p.op }));

@@ -19,6 +19,10 @@ export const LIMITS = {
   socketsPerParticipant: 5,
   /** Open sockets on a board, across everyone. */
   socketsMax: 120,
+  /** Sockets on a board still waiting for their `hello`. */
+  pendingSocketsMax: 20,
+  /** How long a socket may wait before sending its `hello`. */
+  helloTimeoutMs: 10_000,
   votesPerPersonMin: 1,
   votesPerPersonMax: 20,
   timerMinMs: 60_000,

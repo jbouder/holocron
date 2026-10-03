@@ -47,11 +47,14 @@ fails on Vitest 4.1 peers).
 - **The DO persists the whole document** (one JSON row in SQLite) after each
   op and broadcasts the op with a sequence number. Clients resync on a gap.
 - **Owner ≠ participant id.** Owner status comes only from the owner token
-  (hashed in the DO, sent on the socket URL). Never trust a client-sent id.
+  (hashed in the DO, sent in the socket's `hello`). Never trust a client-sent id.
 - **A participant id is bound to a browser secret.** The DO hashes the
-  `secret` query param on the first socket for an id and refuses later
+  `secret` from the first socket's `hello` for an id and refuses later
   sockets that bring another one (close 1008 `identity`). Nothing may accept
   a participant id without going through that check.
+- **No credential on a URL.** The socket URL carries only `pid` and `name`;
+  a socket stays pending (not seated, sent nothing) until its `hello`.
+  Pending sockets must stay out of presence, echoes and every count.
 - **Anonymous means no author id on the wire.** The DO's document keeps the
   real `authorId`; `redactAnonymous()` blanks it on every snapshot, and
   `apply()` blanks the actor on echoes of an anonymous author's own ops.

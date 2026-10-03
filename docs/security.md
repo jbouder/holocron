@@ -57,8 +57,9 @@ from the socket attachment, never from the op. Rules:
 
 - Issued only by `create()` and `redeemHandoff()`; 32 random bytes; only its
   SHA-256 is stored.
-- Accepted on the socket URL (`token`) and as `Authorization: Bearer` on
-  `DELETE /api/boards/:code` and `POST …/handoff`. Nowhere else.
+- Accepted in the socket's `hello` and as `Authorization: Bearer` on
+  `DELETE /api/boards/:code` and `POST …/handoff`. Nowhere else, and never
+  on a URL ([#84](https://github.com/jbouder/holocron/issues/84)).
 - Never sent to a client after issue: snapshots carry `you.isOwner`, not the
   token or hash.
 - Rotated by a handoff; live sockets of the old owner lose ownership at once.
@@ -68,6 +69,16 @@ from the socket attachment, never from the op. Rules:
 
 ### Identity binding
 
+- A socket's URL carries only `pid` and `name`, both public. The object
+  accepts it as *pending*: not seated, not online, sent nothing. Its first
+  message must be `{ type: 'hello', secret, token? }`; anything else closes
+  it with `1008 hello`, and so does a hello that hasn't come within 10 s
+  (checked on the board's next event, since hibernation rules out timers).
+  At most 20 sockets wait at once; past that the oldest goes. Credentials
+  in a first message never reach request logs
+  ([#84](https://github.com/jbouder/holocron/issues/84)).
+  `Sec-WebSocket-Protocol` was rejected for this: whether headers reach
+  Workers Logs isn't clearly documented.
 - The first socket that gets a seat for a participant id stores the
   SHA-256 of its `secret`.
   A later socket with that id and a different secret is closed with
@@ -138,7 +149,7 @@ bounds:
 | Title / name / column title / prompt | 80 / 40 / 40 / 120 chars | zod |
 | Card / comment / action item text | 500 / 300 / 300 chars | zod |
 | Ids (card, column, op, participant) | 64 chars | zod; `pid` sliced in `fetch` |
-| Participant secret | 128 chars | `fetch`, `RedeemSchema` |
+| Participant secret, owner token | 128 chars | zod (`hello`), `RedeemSchema` |
 | Cards / columns / action items | 500 / 8 / 100 | reducer |
 | Comments | 20 per card, 500 per board | reducer |
 | Reactions | 3000 per board, fixed emoji set | reducer, zod enum |
@@ -159,6 +170,7 @@ platform's WebSocket message limit before `JSON.parse`.
 | Wrong handoff codes | 5/min per board, 10-minute code | 429; at most ~50 guesses per code against 10⁹ |
 | Seats | 50 per board; a full board gives a newcomer the first idle seat | close `1008 full` |
 | Sockets | 5 per participant, 120 per board (the owner is exempt from the board cap) | past 5, the participant's oldest socket closes `1008 replaced`; past 120, close `1008 full` |
+| Sockets waiting for `hello` | 20 per board, 10 s each | the oldest closes `1008 hello`; the client retries |
 | Document size | bounded by the limits above | each op re-persists the whole document |
 
 Seats and sockets (fixed in [#71](https://github.com/jbouder/holocron/issues/71)):
@@ -243,11 +255,11 @@ refused before the limiter and before any Durable Object is touched.
   `style-src` allows `'unsafe-inline'` for style attributes set by Turnstile
   and the UI library.
 - WebSocket `Origin` isn't checked. That's acceptable: the socket carries no
-  ambient credentials (no cookies). Every credential is in the URL, which a
-  cross-site page can only build if it already has the secrets.
-- Credentials on the socket URL end up in Workers Logs when they're enabled
-  (also documented in `docs/data-retention.md`). Moving them into a first
-  message is [#84](https://github.com/jbouder/holocron/issues/84).
+  ambient credentials (no cookies). Every credential is in the `hello`,
+  which a cross-site page can only send if it already has the secrets.
+- The socket URL, which Workers Logs record when enabled, carries only the
+  participant id and name (also documented in `docs/data-retention.md`;
+  fixed in [#84](https://github.com/jbouder/holocron/issues/84)).
 
 ### Dependencies
 
@@ -262,7 +274,6 @@ No action beyond `bun update` when shadcn bumps it.
 | # | Severity | Finding |
 | --- | --- | --- |
 | [#80](https://github.com/jbouder/holocron/issues/80) | Low | Owner can't remove a participant who holds a seat online |
-| [#84](https://github.com/jbouder/holocron/issues/84) | Low | Participant secret and owner token travel on the socket URL |
 
 When one of these is fixed, update the section above and drop it from the
 table.

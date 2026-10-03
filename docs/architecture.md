@@ -56,8 +56,12 @@ settings, facilitator lock, vote budgets, limits).
 ## Identity and ownership
 
 There are no accounts. Each browser generates a random participant id and a
-random participant secret, and asks for a display name. All three travel on
-the WebSocket URL.
+random participant secret, and asks for a display name. The id and name
+travel on the WebSocket URL; the secret (and the owner token, if the browser
+holds one) goes in the socket's first message, `hello`, so no request log
+ever holds it. Until its hello the object keeps the socket *pending*: not
+seated, not online, sent nothing. Any other first message, or none within
+ten seconds, closes it with code 1008 and reason `hello`.
 
 The id is public (it is on every signed card in the snapshot); the secret is
 what makes it yours. The first socket a board sees for an id binds that id
@@ -69,8 +73,8 @@ instead of retrying. This is what makes author-only edits, renames and
 `you.anonymousCardIds` trustworthy.
 
 Creating a board returns an **owner token**; the object stores its SHA-256.
-The creating browser keeps the token in `localStorage` and sends it on the
-socket URL and in the `DELETE` request. `isOwner` is derived only from the
+The creating browser keeps the token in `localStorage` and sends it in the
+socket's `hello` and in the `DELETE` request. `isOwner` is derived only from the
 token, never from the participant id.
 
 The owner can **hand the board off**. `POST /api/boards/:code/handoff` (with
