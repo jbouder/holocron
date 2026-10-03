@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { generateCode, isValidCode, normalizeCode } from '#shared/codes';
+import { EXPORT_FORMATS, isExportFormat } from '#shared/export';
 import { LIMITS } from '#shared/limits';
 import type { AppConfig, CreateBoardResponse } from '#shared/protocol';
 import { formatResetTime, nextResetAt } from '#shared/reset-time';
@@ -47,7 +48,7 @@ export default {
       }
 
       const boardMatch = pathname.match(
-        /^\/api\/boards\/([^/]+)(\/export\.md)?$/,
+        /^\/api\/boards\/([^/]+)(?:\/export\.([a-z]+))?$/,
       );
       if (boardMatch) {
         const code = normalizeCode(decodeURIComponent(boardMatch[1]));
@@ -56,21 +57,25 @@ export default {
         }
         const stub = env.BOARD.getByName(code);
 
-        if (boardMatch[2]) {
+        const format = boardMatch[2];
+        if (format !== undefined) {
+          if (!isExportFormat(format)) {
+            return json({ error: 'Not found' }, 404);
+          }
           if (request.method !== 'GET') {
             return json({ error: 'Method not allowed' }, 405);
           }
-          const markdown = await stub.exportMarkdown();
-          if (markdown === null) {
+          const body = await stub.export(format);
+          if (body === null) {
             return json(
               { error: 'This board has expired or never existed' },
               404,
             );
           }
-          return new Response(markdown, {
+          return new Response(body, {
             headers: {
-              'content-type': 'text/markdown; charset=utf-8',
-              'content-disposition': `attachment; filename="retro-${code}.md"`,
+              'content-type': EXPORT_FORMATS[format].contentType,
+              'content-disposition': `attachment; filename="retro-${code}.${format}"`,
               'cache-control': 'no-store',
             },
           });

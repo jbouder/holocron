@@ -1,5 +1,5 @@
 import { DurableObject } from 'cloudflare:workers';
-import { boardToMarkdown } from '#shared/export';
+import { type ExportFormat, exportBoard } from '#shared/export';
 import { LIMITS } from '#shared/limits';
 import {
   type BoardMeta,
@@ -214,9 +214,11 @@ export class BoardObject extends DurableObject<Bindings> {
     return 'ok';
   }
 
-  async exportMarkdown(): Promise<string | null> {
+  async export(format: ExportFormat): Promise<string | null> {
     await this.expireIfDue();
-    return this.board ? boardToMarkdown(this.withPresence(this.board)) : null;
+    return this.board
+      ? exportBoard(this.withPresence(this.board), format)
+      : null;
   }
 
   /* ---------- WebSocket upgrade ---------- */

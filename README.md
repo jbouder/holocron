@@ -42,13 +42,17 @@ WebSockets, and wipes itself on an alarm.
   combined vote count. Drag to an empty spot to move between columns.
 - **Timer.** 1–15 minute presets, counted down on every screen. At zero a
   short chime plays and the tab title flags it (switchable in Preferences).
-- **Action items.** Text, optional owner, done checkbox. Exported with the board.
+- **Action items.** Text, optional owner, done checkbox, and an optional
+  link to the card it came from (from the card's `⋯` menu). Exported with the
+  board.
 - **Presence.** Who is here, who stepped away, who owns the board. In Write,
   people mark themselves done ("3 of 5 done"); in Vote, each avatar shows how
   many votes that person has left, so the facilitator knows when to move on.
-- **Export.** Markdown download or copy: columns, grouped cards with votes
-  and reactions, comments, action items. Same output from the UI and the
-  `/export.md` endpoint.
+- **Export.** Download or copy in three formats: Markdown (columns, grouped
+  cards with votes and reactions, comments, action items), CSV of the action
+  items for a tracker import, and a short plain-text summary for chat. Same
+  output from the UI and the `/export.md`, `/export.csv` and `/export.txt`
+  endpoints.
 - **Facilitation.** By default only the owner can move the phase, set the
   timer, rename the board, add, rename or remove columns, and edit column
   prompts. The owner can open all of that up to everyone by turning off
