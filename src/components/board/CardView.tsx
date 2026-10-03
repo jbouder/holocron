@@ -138,24 +138,27 @@ export function CardView({
       data-blurred={blurred}
       className={cn(
         'retro-card drop-target group relative rounded-lg border bg-card p-3 text-sm text-card-foreground shadow-xs',
+        // The drag handle lives in the left gutter, so widen it rather than
+        // push the title out of line with the author row.
+        canArrange && 'pl-7',
         mine && 'border-foreground/25',
       )}
       aria-label={
         blurred ? 'A card, hidden until the Write phase ends' : undefined
       }
     >
-      <div className="flex items-start gap-2">
-        {canArrange && (
-          <button
-            type="button"
-            aria-label="Drag to group or move"
-            className="-ml-1.5 mt-0.5 shrink-0 rounded text-muted-foreground/60 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover-none:opacity-100 focus-visible:outline-2 focus-visible:outline-ring/50"
-            {...handleProps(card.id, card.groupId)}
-          >
-            <DotsSixVerticalIcon weight="bold" className="size-4" />
-          </button>
-        )}
+      {canArrange && (
+        <button
+          type="button"
+          aria-label="Drag to group or move"
+          className="absolute inset-y-0 left-0 flex w-7 items-start justify-center rounded-l-lg pt-3.5 text-muted-foreground/60 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover-none:opacity-100 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring/50"
+          {...handleProps(card.id, card.groupId)}
+        >
+          <DotsSixVerticalIcon weight="bold" className="size-4" />
+        </button>
+      )}
 
+      <div className="flex items-start gap-2">
         {editing ? (
           <Textarea
             autoFocus
