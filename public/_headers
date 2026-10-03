@@ -20,7 +20,11 @@
 #   frame-src    Turnstile's challenge.
 /*
   Referrer-Policy: same-origin
+<<<<<<< Updated upstream
   Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-++m5lfUpXL6a5ZG1Ls7Sl6cpzdc9qPdfU3B5O1b6hC0=' 'wasm-unsafe-eval' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://huggingface.co https://*.huggingface.co https://*.hf.co https://raw.githubusercontent.com; frame-src https://challenges.cloudflare.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'
+=======
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-++m5lfUpXL6a5ZG1Ls7Sl6cpzdc9qPdfU3B5O1b6hC0=' 'wasm-unsafe-eval' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://huggingface.co https://*.huggingface.co https://*.hf.co https://raw.githubusercontent.com; frame-src https://challenges.cloudflare.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'
+>>>>>>> Stashed changes
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=(), hid=(), midi=()
