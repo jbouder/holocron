@@ -305,7 +305,7 @@ function JoinPanel() {
                 spellCheck={false}
                 aria-invalid={error ? true : undefined}
                 aria-describedby={error ? 'join-error' : undefined}
-                className="code-display h-9 text-base"
+                className="code-display"
               />
               {error && (
                 <p id="join-error" className="text-xs text-destructive">
@@ -315,7 +315,6 @@ function JoinPanel() {
             </div>
             <Button
               type="submit"
-              size="lg"
               variant="secondary"
               disabled={busy}
               className="press"
