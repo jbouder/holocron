@@ -201,6 +201,72 @@ function canArrangeCard(board: Board, card: Card, actor: Actor): boolean {
 }
 
 /**
+ * The cards a `moveCard`, `groupCards` or `ungroupCard` changes, beyond
+ * renumbering positions in a column. Moving or grouping a card takes its
+ * whole group along, grouping changes the target, and ungrouping the
+ * second-to-last member dissolves the group, which changes the last one.
+ * Empty for any other op, or when a card is gone (the reducer says so).
+ */
+export function arrangedCards(board: Board, op: BoardOp): Card[] {
+  const find = (id: string) => board.cards.find((c) => c.id === id);
+  const groupOf = (card: Card) =>
+    card.groupId === null
+      ? [card]
+      : board.cards.filter((c) => c.groupId === card.groupId);
+  switch (op.type) {
+    case 'moveCard': {
+      const card = find(op.id);
+      return card ? groupOf(card) : [];
+    }
+    case 'groupCards': {
+      const card = find(op.id);
+      const target = find(op.targetId);
+      if (!card || !target || card.id === target.id) {
+        return [];
+      }
+      const members = groupOf(card);
+      return members.includes(target) ? members : [...members, target];
+    }
+    case 'ungroupCard': {
+      const card = find(op.id);
+      if (!card || card.groupId === null) {
+        return [];
+      }
+      const rest = board.cards.filter(
+        (c) => c.groupId === card.groupId && c.id !== card.id,
+      );
+      return rest.length < 2 ? [card, ...rest] : [card];
+    }
+    default:
+      return [];
+  }
+}
+
+/**
+ * May this actor make this move, group or ungroup? Under the facilitation
+ * lock, only if every card it changes is theirs to arrange. The UI asks
+ * before it offers a drag handle or an Ungroup item.
+ */
+export function canArrange(board: Board, op: BoardOp, actor: Actor): boolean {
+  return arrangedCards(board, op).every((c) => canArrangeCard(board, c, actor));
+}
+
+/**
+ * `canArrange`, enforced. A redacted echo (empty id) was already checked by
+ * the server and names no author to check against, so it is taken as is.
+ */
+function requireArrange(
+  board: Board,
+  op: BoardOp,
+  actor: Actor,
+  message: string,
+) {
+  if (actor.id !== '' && !canArrange(board, op, actor)) {
+    fail(message);
+  }
+}
+
+/**
  * The board as it may leave the server: anonymous cards and comments lose
  * their author id. Everything else a client needs to apply ops and render
  * stays. Run on every snapshot; echoes carry no author ids to begin with.
@@ -456,11 +522,13 @@ export function reduce(
       if (!board.columns.some((c) => c.id === op.columnId)) {
         fail('That column is gone');
       }
-      if (!canArrangeCard(board, card, actor)) {
-        fail('Only the board owner can move cards on this board');
-      }
-      // Moving a whole group moves every member; moving a member alone
-      // leaves the group.
+      requireArrange(
+        board,
+        op,
+        actor,
+        'Only the board owner can move other people’s cards on this board',
+      );
+      // Moving any member moves the whole group (to leave it, ungroup).
       const groupMembers =
         card.groupId !== null
           ? board.cards.filter((c) => c.groupId === card.groupId)
@@ -500,16 +568,14 @@ export function reduce(
       if (card.id === target.id) {
         return board;
       }
-      // Grouping changes the target too, so both have to be the actor's to
-      // arrange. A redacted echo (empty id) was already checked by the
-      // server and names neither card's author, so it is taken as is.
-      if (
-        actor.id !== '' &&
-        (!canArrangeCard(board, card, actor) ||
-          !canArrangeCard(board, target, actor))
-      ) {
-        fail('Only the board owner can group cards on this board');
-      }
+      // Grouping changes the target and the card's whole group, so all of
+      // them have to be the actor's to arrange.
+      requireArrange(
+        board,
+        op,
+        actor,
+        'Only the board owner can group other people’s cards on this board',
+      );
       const groupId = target.groupId ?? op.groupId;
       const members =
         card.groupId !== null
@@ -551,9 +617,13 @@ export function reduce(
       if (card.groupId === null) {
         return board;
       }
-      if (!canArrangeCard(board, card, actor)) {
-        fail('Only the board owner can ungroup cards on this board');
-      }
+      // Dissolving the group changes the last member too.
+      requireArrange(
+        board,
+        op,
+        actor,
+        'Only the board owner can ungroup other people’s cards on this board',
+      );
       const remaining = board.cards.filter(
         (c) => c.groupId === card.groupId && c.id !== card.id,
       );

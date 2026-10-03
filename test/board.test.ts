@@ -1245,7 +1245,7 @@ describe('crowded boards', () => {
 });
 
 describe('grouping anonymous cards on a locked board', () => {
-  it('names no one when either card is the author’s anonymous one, and every other client can replay it', async () => {
+  it('names no one when any card it changes is the author’s anonymous one, and every other client can replay it', async () => {
     const created = await createBoard();
     const luke = await join(created.code, 'luke', 'Luke');
     const han = await join(created.code, 'han', 'Han');
@@ -1269,6 +1269,10 @@ describe('grouping anonymous cards on a locked board', () => {
       { type: 'groupCards', id: 's', targetId: 'b', groupId: 'g2' },
       { type: 'ungroupCard', id: 's' },
       { type: 'groupCards', id: 'a', targetId: 's', groupId: 'g3' },
+      // The signed card's op takes the anonymous one along: moving the
+      // group, then dissolving it.
+      { type: 'moveCard', id: 's', columnId: 'col-2' },
+      { type: 'ungroupCard', id: 's' },
     ];
     for (const op of ops) {
       han.send(op);
@@ -1293,7 +1297,7 @@ describe('grouping anonymous cards on a locked board', () => {
       if (m.type !== 'op' || !board) {
         continue;
       }
-      if (m.op.type === 'groupCards') {
+      if (['groupCards', 'moveCard', 'ungroupCard'].includes(m.op.type)) {
         expect(JSON.stringify(m)).not.toContain('han');
         expect(m.actor).toMatchObject({ id: '', name: '' });
       }
@@ -1313,7 +1317,10 @@ describe('grouping anonymous cards on a locked board', () => {
     const groups = Object.fromEntries(
       (board as Board).cards.map((c) => [c.id, c.groupId]),
     );
-    expect(groups).toEqual({ a: 'g3', b: null, s: 'g3' });
+    expect(groups).toEqual({ a: null, b: null, s: null });
+    expect(
+      (board as Board).cards.filter((c) => c.columnId === 'col-2'),
+    ).toHaveLength(2);
   });
 });
 

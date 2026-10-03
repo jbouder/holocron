@@ -9,6 +9,8 @@ import { LIMITS } from '#shared/limits';
 import { ClientMessageSchema, type Op, OpSchema } from '#shared/protocol';
 import {
   anonymousIdsFor,
+  arrangedCards,
+  canArrange,
   canReleaseSeat,
   cardsInColumn,
   createBoard,
@@ -188,10 +190,11 @@ describe('grouping', () => {
     expect(a?.groupId).toBe('g1');
     expect(b?.groupId).toBe('g1');
 
+    // The owner may: the group holds both Han's card and Luke's.
     const moved = reduce(
       board,
       { type: 'moveCard', id: 'b', columnId: 'col-2' },
-      luke,
+      owner,
     );
     expect(moved.cards.every((c) => c.columnId === 'col-2')).toBe(true);
   });
@@ -1360,6 +1363,115 @@ describe('permission rules', () => {
         owner,
       ),
     ).not.toThrow();
+  });
+
+  describe('through group membership', () => {
+    /** Han's h1 and Luke's l1, grouped by the owner; Luke's l2 alone. */
+    function mixed(): Board {
+      return apply(fresh(), [
+        [add('h1', 'Han one'), han],
+        [add('l1', 'Luke one'), luke],
+        [add('l2', 'Luke two'), luke],
+        [{ type: 'groupCards', id: 'l1', targetId: 'h1', groupId: 'g' }, owner],
+      ]);
+    }
+    const open = (board: Board) =>
+      reduce(
+        board,
+        { type: 'updateSettings', settings: { facilitatorOnly: false } },
+        owner,
+      );
+    const groupOf = (board: Board, id: string) =>
+      board.cards.find((c) => c.id === id)?.groupId;
+
+    const reaching: Op[] = [
+      // Moving l1 would take h1 along.
+      { type: 'moveCard', id: 'l1', columnId: 'col-2' },
+      // Ungrouping l1 would dissolve the group, ungrouping h1.
+      { type: 'ungroupCard', id: 'l1' },
+      // Grouping l1 onto l2 would pull h1 into Luke's new group.
+      { type: 'groupCards', id: 'l1', targetId: 'l2', groupId: 'n' },
+    ];
+
+    it.each(reaching.map((op) => [op.type, op] as const))(
+      '%s refuses to change someone else’s grouped card under the lock',
+      (_, op) => {
+        const board = mixed();
+        expect(() => reduce(board, op, luke)).toThrow(
+          /owner .* other people’s cards/,
+        );
+        // Han is refused too: l1 is Luke's.
+        expect(() => reduce(board, { ...op, id: 'h1' } as Op, han)).toThrow(
+          /owner/,
+        );
+        expect(() => reduce(board, op, owner)).not.toThrow();
+        expect(() => reduce(open(board), op, luke)).not.toThrow();
+      },
+    );
+
+    it('moves the whole group when the owner does it', () => {
+      const moved = reduce(
+        mixed(),
+        { type: 'moveCard', id: 'l1', columnId: 'col-2' },
+        owner,
+      );
+      const columns = Object.fromEntries(
+        moved.cards.map((c) => [c.id, c.columnId]),
+      );
+      expect(columns).toEqual({ h1: 'col-2', l1: 'col-2', l2: col });
+    });
+
+    it('lets a member leave a larger group, which leaves the others grouped', () => {
+      const board = apply(mixed(), [
+        [{ type: 'groupCards', id: 'l2', targetId: 'h1', groupId: 'x' }, owner],
+      ]);
+      const left = reduce(board, { type: 'ungroupCard', id: 'l2' }, luke);
+      expect(groupOf(left, 'l2')).toBeNull();
+      expect(groupOf(left, 'h1')).toBe('g');
+      expect(groupOf(left, 'l1')).toBe('g');
+    });
+
+    it('lets an author move and dissolve a group that is all theirs', () => {
+      const board = apply(fresh(), [
+        [add('l1', 'Luke one'), luke],
+        [add('l2', 'Luke two'), luke],
+        [{ type: 'groupCards', id: 'l1', targetId: 'l2', groupId: 'g' }, luke],
+        [{ type: 'moveCard', id: 'l1', columnId: 'col-2' }, luke],
+        [{ type: 'ungroupCard', id: 'l2' }, luke],
+      ]);
+      expect(board.cards.map((c) => [c.columnId, c.groupId])).toEqual([
+        ['col-2', null],
+        ['col-2', null],
+      ]);
+    });
+
+    it('takes a redacted echo as the server already checked it', () => {
+      const echo: Actor = { id: '', name: '', isOwner: false };
+      for (const op of reaching) {
+        expect(() => reduce(mixed(), op, echo)).not.toThrow();
+      }
+    });
+
+    it('names every card an op changes, for the UI and the echo', () => {
+      const board = mixed();
+      const ids = (op: Op) =>
+        arrangedCards(board, op)
+          .map((c) => c.id)
+          .sort();
+      expect(ids(reaching[0])).toEqual(['h1', 'l1']);
+      expect(ids(reaching[1])).toEqual(['h1', 'l1']);
+      expect(ids(reaching[2])).toEqual(['h1', 'l1', 'l2']);
+      expect(ids({ type: 'moveCard', id: 'l2', columnId: 'col-2' })).toEqual([
+        'l2',
+      ]);
+      expect(ids({ type: 'moveCard', id: 'gone', columnId: 'col-2' })).toEqual(
+        [],
+      );
+      expect(canArrange(board, reaching[0], luke)).toBe(false);
+      expect(
+        canArrange(board, { type: 'moveCard', id: 'l2', columnId: col }, luke),
+      ).toBe(true);
+    });
   });
 
   it('refuses a new group id that names another group', () => {

@@ -42,7 +42,7 @@ from the socket attachment, never from the op. Rules:
 | `addCard`, `vote`, `unvote`, `setDone`, `setName` | Any participant (votes after Write; `setDone` only in Write, only for yourself) |
 | `editCard`, `editComment` | Author only, never the owner |
 | `deleteCard`, `deleteComment` | Author or owner |
-| `moveCard`, `groupCards`, `ungroupCard` | Author or owner (for `groupCards`, of both cards); anyone when the facilitation lock is off. A new group id can't name an existing group |
+| `moveCard`, `groupCards`, `ungroupCard` | Author or owner of every card the op changes (`arrangedCards`): a moved card's whole group, a grouped card's whole group and the target, and on `ungroupCard` the last member of a group it dissolves ([#87](https://github.com/jbouder/holocron/issues/87)); anyone when the facilitation lock is off. A new group id can't name an existing group |
 | `toggleReaction`, `addComment` | Any participant, except on a card still blurred for them, or an anonymous card still blurred for everyone else |
 | `setPhase`, `setTimer`, `clearTimer`, `addColumn`, `renameColumn`, `setColumnPrompt`, `deleteColumn`, `renameBoard` | Owner while the lock is on (the default), else anyone |
 | `updateSettings` | Owner only, always |
@@ -85,7 +85,10 @@ from the socket attachment, never from the op. Rules:
   comments. Each snapshot's `you` lists the recipient's own.
 - Echoes: `anonymousTarget()` covers `addCard`, `editCard`, `deleteCard`,
   `moveCard`, `groupCards`, `ungroupCard`, `addComment`, `editComment` and
-  `deleteComment`. Other sockets get `actor: { id: '', name: '' }`.
+  `deleteComment`. Other sockets get `actor: { id: '', name: '' }`. For the
+  three arrangement ops it checks every card the op changes, not just the
+  one named: under the lock an accepted op says the actor may arrange them
+  all, so naming them would unmask an anonymous group member.
 - `presence`, `rejected`, `deleted`, `expired` carry no author ids. `rejected`
   goes to the sender only.
 - Exports print no author for anonymous items.
