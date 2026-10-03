@@ -1012,7 +1012,8 @@ describe('blurred cards on the wire', () => {
   });
 });
 
-describe('code probing', () => {
+// Generous, because a test may first wait out the limiter's window.
+describe('code probing', { timeout: 30_000 }, () => {
   const from = (ip: string, path: string, init: RequestInit = {}) =>
     call(
       new Request(`http://holocron.test${path}`, {
@@ -1021,7 +1022,21 @@ describe('code probing', () => {
       }),
     );
 
+  /**
+   * The local limiter counts in windows aligned to the wall clock, so a
+   * test that fills one must not straddle a boundary: the count would reset
+   * partway and the 301st lookup get through. With little of this window
+   * left, start in the next one.
+   */
+  async function freshWindow() {
+    const left = 60_000 - (Date.now() % 60_000);
+    if (left < 15_000) {
+      await new Promise((resolve) => setTimeout(resolve, left + 100));
+    }
+  }
+
   it('limits lookups by code per address, the same for live and unknown codes', async () => {
+    await freshWindow();
     const created = await createBoard();
     const ip = '198.51.100.7';
     const statuses: number[] = [];
@@ -1050,6 +1065,7 @@ describe('code probing', () => {
   });
 
   it('counts delete and handoff against the same budget', async () => {
+    await freshWindow();
     const created = await createBoard();
     const ip = '198.51.100.10';
     const probes = [
@@ -1094,6 +1110,7 @@ describe('code probing', () => {
   });
 
   it('closes an over-limit socket with 1013 instead of failing the upgrade', async () => {
+    await freshWindow();
     const created = await createBoard();
     const ip = '198.51.100.9';
     for (let i = 0; i < 300; i++) {
