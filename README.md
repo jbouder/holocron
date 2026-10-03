@@ -118,7 +118,8 @@ Cloudflare account, `bun install`, `npx wrangler login`, `npm run deploy`.
 Change the reset time with the `RESET_TZ` and `RESET_HOUR` vars in
 `wrangler.jsonc`.
 
-Also: [docs/architecture.md](docs/architecture.md) for how it fits together.
+Also: [docs/architecture.md](docs/architecture.md) for how it fits together,
+and [docs/security.md](docs/security.md) for the threat model and review.
 
 ## Stack
 

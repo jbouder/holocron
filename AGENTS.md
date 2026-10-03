@@ -26,7 +26,8 @@ itself on an alarm.
   are the owner-only in-browser analysis (WebLLM in `lib/analysis.worker.ts`,
   lazy-loaded; the prompt never carries names or ids).
 - `test/` — Vitest running inside workerd (`@cloudflare/vitest-plugin`).
-- `docs/` — self-hosting, architecture, data retention. The in-app Help page
+- `docs/` — self-hosting, architecture, data retention, security (threat
+  model + review findings). The in-app Help page
   (`src/pages/HelpPage.tsx`) covers *using* the tool only.
 
 ## Stack

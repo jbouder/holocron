@@ -797,3 +797,89 @@ describe('ownership handoff', () => {
     });
   });
 });
+
+describe('anonymity across every message', () => {
+  it('never puts an anonymous author’s id on anyone else’s wire', async () => {
+    const created = await createBoard();
+    const leia = await join(
+      created.code,
+      'owner-1',
+      'Leia',
+      created.ownerToken,
+    );
+    const luke = await join(created.code, 'luke', 'Luke');
+    const han = await join(created.code, 'han', 'Han');
+    await Promise.all([
+      leia.next('snapshot'),
+      luke.next('snapshot'),
+      han.next('snapshot'),
+    ]);
+
+    // Every op an anonymous author can take on their own items.
+    const card = (id: string): Op => ({
+      type: 'addCard',
+      id,
+      columnId: 'col-1',
+      text: `Card ${id}`,
+      anonymous: true,
+    });
+    const ops: Op[] = [
+      card('a'),
+      card('b'),
+      { type: 'editCard', id: 'a', text: 'Edited' },
+      { type: 'moveCard', id: 'a', columnId: 'col-2' },
+      { type: 'groupCards', id: 'a', targetId: 'b', groupId: 'grp' },
+      { type: 'ungroupCard', id: 'a' },
+      {
+        type: 'addComment',
+        id: 'c',
+        cardId: 'b',
+        text: 'Mine',
+        anonymous: true,
+      },
+      { type: 'editComment', id: 'c', text: 'Still mine' },
+      {
+        type: 'addComment',
+        id: 'd',
+        cardId: 'b',
+        text: 'Also mine',
+        anonymous: true,
+      },
+      { type: 'deleteComment', id: 'd' },
+      { type: 'deleteCard', id: 'a' },
+    ];
+    for (const op of ops) {
+      han.send(op);
+    }
+    const echoes = (client: Client) =>
+      client.messages.filter((m) => m.type === 'op').length;
+    // Han's join rename is the first echo the others see.
+    await vi.waitFor(() => {
+      expect(echoes(han)).toBe(ops.length);
+      expect(echoes(luke)).toBe(ops.length + 1);
+    });
+    expect(han.messages.some((m) => m.type === 'rejected')).toBe(false);
+
+    // Fresh snapshots too, for a viewer and for the owner.
+    luke.ws.send(JSON.stringify({ type: 'sync' }));
+    leia.ws.send(JSON.stringify({ type: 'sync' }));
+    await luke.next('snapshot', 1);
+    await leia.next('snapshot', 1);
+
+    for (const client of [luke, leia]) {
+      for (const m of client.messages) {
+        const raw = JSON.stringify(m);
+        expect(raw).not.toContain('"authorId":"han"');
+        expect(raw).not.toContain('"authorName":"Han"');
+        if (m.type === 'op' && m.op.type !== 'setName') {
+          expect(m.actor).toMatchObject({ id: '', name: '' });
+        }
+      }
+    }
+
+    const md = await call(
+      new Request(`http://holocron.test/api/boards/${created.code}/export.md`),
+    );
+    expect(await md.text()).not.toContain('Han');
+  });
+});
