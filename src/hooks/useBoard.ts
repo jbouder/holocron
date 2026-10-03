@@ -28,7 +28,9 @@ export type ConnectionStatus =
    * A newer tab of this participant took this one's place (past the tab
    * cap, the newest tab wins).
    */
-  | 'replaced';
+  | 'replaced'
+  /** The owner took this participant off the board until the wipe. */
+  | 'removed';
 
 interface Pending {
   opId: string;
@@ -257,7 +259,9 @@ export function useBoard(
         }
         if (
           event.code === 1008 &&
-          (event.reason === 'full' || event.reason === 'replaced')
+          (event.reason === 'full' ||
+            event.reason === 'replaced' ||
+            event.reason === 'removed')
         ) {
           // Nothing changes by retrying on our own; a reload tries again.
           // A replaced tab that retried would evict the tab that replaced

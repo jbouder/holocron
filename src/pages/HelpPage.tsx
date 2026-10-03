@@ -348,6 +348,12 @@ export function HelpPage() {
             previous owner is an ordinary participant, on every device.
           </p>
           <p>
+            The owner can take someone off the board: the People button next to
+            the faces opens everyone on it, with Remove beside each name. Their
+            tabs close, and they cannot rejoin until the board resets. Their
+            cards and comments stay; their votes and reactions go.
+          </p>
+          <p>
             Deleting a board removes it immediately for everyone on it. It
             cannot be undone.
           </p>

@@ -67,6 +67,7 @@ export function createBoard(input: CreateBoardInput): Board {
     actionItems: [],
     participants: [{ id: input.ownerId, name: input.ownerName, online: false }],
     done: [],
+    removed: [],
   };
 }
 
@@ -85,6 +86,7 @@ export function upgradeBoard(board: Board): Board {
     })),
     columns: board.columns.map((c) => ({ ...c, prompt: c.prompt ?? '' })),
     done: board.done ?? [],
+    removed: board.removed ?? [],
   };
 }
 
@@ -412,6 +414,9 @@ function withParticipant(board: Board, actor: Actor): Board {
         p.id === actor.id ? { ...p, name: actor.name } : p,
       ),
     };
+  }
+  if (board.removed.includes(actor.id)) {
+    fail('The owner removed you from this board');
   }
   if (board.participants.length >= LIMITS.participantsMax) {
     fail('This board is full');
@@ -974,6 +979,30 @@ export function reduce(
         participants: board.participants.filter(
           (p) => p.id !== op.participantId,
         ),
+      };
+    }
+
+    case 'removeParticipant': {
+      if (!actor.isOwner) {
+        fail('Only the board owner can remove someone');
+      }
+      const id = op.participantId;
+      if (id === board.ownerId) {
+        fail('The owner cannot be removed');
+      }
+      if (!board.participants.some((p) => p.id === id)) {
+        fail('They are not on this board');
+      }
+      // Cards and comments stay, signed or anonymous: authorship is by id,
+      // and touching anonymous ones would say whose they were. Votes,
+      // reactions and "done" are public and by participant, so they go.
+      return {
+        ...board,
+        participants: board.participants.filter((p) => p.id !== id),
+        votes: board.votes.filter((v) => v.participantId !== id),
+        reactions: board.reactions.filter((r) => r.participantId !== id),
+        done: board.done.filter((d) => d !== id),
+        removed: [...board.removed, id],
       };
     }
 

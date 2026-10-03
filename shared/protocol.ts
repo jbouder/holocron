@@ -126,6 +126,11 @@ export const OpSchema = z.discriminatedUnion('type', [
     title: text(LIMITS.titleMax),
   }),
   z.object({ type: z.literal('setName'), name: text(LIMITS.nameMax) }),
+  /**
+   * The owner takes someone off the board until the wipe. Their sockets
+   * close, and they cannot rejoin.
+   */
+  z.object({ type: z.literal('removeParticipant'), participantId: id }),
   /** The actor's own "I'm done writing" signal. */
   z.object({ type: z.literal('setDone'), done: z.boolean() }),
 ]);

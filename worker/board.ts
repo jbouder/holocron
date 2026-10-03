@@ -468,6 +468,13 @@ export class BoardObject extends DurableObject<Bindings> {
     const { id, name } = pending;
     const isOwner = tokenHash !== null && sameHash(tokenHash, this.ownerHash);
 
+    // Removed by the owner: out until the wipe. The list is on the board
+    // for everyone to read, so saying so gives nothing away.
+    if (this.board.removed.includes(id)) {
+      refuse(ws, 'removed');
+      return;
+    }
+
     // An id already bound to another browser's secret is an impostor.
     const bound = this.secrets[id];
     if (bound !== undefined && !sameHash(secretHash, bound)) {
@@ -527,16 +534,8 @@ export class BoardObject extends DurableObject<Bindings> {
         `release-${crypto.randomUUID()}`,
         [],
       );
-      // A binding only protects anonymous items; without any, let it go so
-      // seats churning through a full board do not pile bindings up.
-      const theirs = anonymousIdsFor(this.board, idle);
-      if (
-        theirs.anonymousCardIds.length === 0 &&
-        theirs.anonymousCommentIds.length === 0
-      ) {
-        delete this.secrets[idle];
-        secretsChanged = true;
-      }
+      // Seats churning through a full board do not pile bindings up.
+      secretsChanged = this.dropBinding(idle);
     }
     if (!known || known.name !== name) {
       try {
@@ -641,6 +640,9 @@ export class BoardObject extends DurableObject<Bindings> {
       if (op.type === 'setName') {
         ws.serializeAttachment({ ...attachment, name: op.name });
         this.broadcastPresence();
+      }
+      if (op.type === 'removeParticipant') {
+        await this.evict(op.participantId);
       }
     } catch (error) {
       if (error instanceof OpError) {
@@ -781,6 +783,42 @@ export class BoardObject extends DurableObject<Bindings> {
       default:
         return null;
     }
+  }
+
+  /**
+   * Close every socket of a participant the owner removed (they heard the
+   * op first), pending ones included.
+   */
+  private async evict(id: string) {
+    for (const ws of this.ctx.getWebSockets()) {
+      if (this.attachmentOf(ws)?.id === id) {
+        refuse(ws, 'removed');
+      }
+    }
+    this.broadcastPresence();
+    if (this.dropBinding(id)) {
+      await this.ctx.storage.put(SECRETS_KEY, this.secrets);
+    }
+  }
+
+  /**
+   * Forget the secret bound to someone who lost their seat, unless it
+   * protects anonymous items: those stay theirs, so nobody else may ever
+   * take the id. Returns whether a binding went (the caller stores it).
+   */
+  private dropBinding(id: string): boolean {
+    if (!this.board || this.secrets[id] === undefined) {
+      return false;
+    }
+    const theirs = anonymousIdsFor(this.board, id);
+    if (
+      theirs.anonymousCardIds.length > 0 ||
+      theirs.anonymousCommentIds.length > 0
+    ) {
+      return false;
+    }
+    delete this.secrets[id];
+    return true;
   }
 
   /**

@@ -132,6 +132,11 @@ export interface Board {
    * Write; cleared whenever the phase changes.
    */
   done: string[];
+  /**
+   * Participants the owner removed. They cannot rejoin until the wipe;
+   * their signed and anonymous items stay, because authorship is by id.
+   */
+  removed: string[];
 }
 
 /**

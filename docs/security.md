@@ -46,6 +46,7 @@ from the socket attachment, never from the op. Rules:
 | `toggleReaction`, `addComment` | Any participant, except on a card still blurred for them, or an anonymous card still blurred for everyone else |
 | `setPhase`, `setTimer`, `clearTimer`, `addColumn`, `renameColumn`, `setColumnPrompt`, `deleteColumn`, `renameBoard` | Owner while the lock is on (the default), else anyone |
 | `updateSettings` | Owner only, always |
+| `removeParticipant` | Owner only, never on the owner ([#80](https://github.com/jbouder/holocron/issues/80)) |
 | `setOwner` | Server only: not in `ClientMessageSchema`; emitted after a handoff redeem |
 | `addActionItem` | Any participant |
 | `editActionItem`, `toggleActionItem`, `deleteActionItem` | Owner while the lock is on, else anyone ([#72](https://github.com/jbouder/holocron/issues/72)) |
@@ -201,9 +202,18 @@ Seats and sockets (fixed in [#71](https://github.com/jbouder/holocron/issues/71)
   joins leave nothing in storage. A released seat's binding goes too,
   unless it protects anonymous items. The bindings stay one small value
   instead of growing with every scripted join.
-- Still open: a client that keeps 49 sockets open holds every seat until
-  the wipe. Owner removal is
-  [#80](https://github.com/jbouder/holocron/issues/80).
+- A client that keeps 49 sockets open holds every seat while it stays
+  online. The owner removes it from the People list
+  ([#80](https://github.com/jbouder/holocron/issues/80)): a
+  `removeParticipant` op takes the seat, their votes, reactions and
+  "done", and adds the id to `board.removed`. The object closes all of
+  that id's sockets with `1008 removed` and refuses its later hellos the
+  same way until the wipe clears the list. Cards and comments stay, signed
+  or anonymous, so the op changes nothing that would say who wrote an
+  anonymous one; the echo names only the owner. The binding goes unless it
+  protects anonymous items, as for a released seat. A client that comes
+  back under a fresh id needs removing again, so this answers a person, not
+  a script that mints ids; the per-IP request limit is what slows that.
 
 ### Code enumeration
 
@@ -271,9 +281,6 @@ No action beyond `bun update` when shadcn bumps it.
 
 ## Findings
 
-| # | Severity | Finding |
-| --- | --- | --- |
-| [#80](https://github.com/jbouder/holocron/issues/80) | Low | Owner can't remove a participant who holds a seat online |
-
-When one of these is fixed, update the section above and drop it from the
-table.
+None open. Every finding from the review is fixed, and the sections above
+link the issue that fixed it. Record new ones here as a table
+(`| # | Severity | Finding |`), and drop each row once it's fixed.
