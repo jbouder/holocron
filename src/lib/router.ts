@@ -12,16 +12,17 @@ export type GoneReason = 'expired' | 'deleted' | 'missing' | 'refused';
 export type Route =
   | { name: 'home' }
   | { name: 'board'; code: string }
-  | { name: 'help' }
+  | { name: 'help'; section?: string }
   | { name: 'gone'; reason: GoneReason; code?: string };
 
-export function parse(pathname: string): Route {
+export function parse(pathname: string, hash = ''): Route {
   const clean = pathname.length > 1 ? pathname.replace(/\/$/, '') : pathname;
   if (clean === '/') {
     return { name: 'home' };
   }
   if (clean === '/help') {
-    return { name: 'help' };
+    const section = decodeURIComponent(hash.replace(/^#/, ''));
+    return section ? { name: 'help', section } : { name: 'help' };
   }
   const board = clean.match(/^\/b\/([^/]+)$/);
   if (board) {
@@ -38,7 +39,9 @@ export function pathFor(route: Route): string {
     case 'home':
       return '/';
     case 'help':
-      return '/help';
+      return route.section
+        ? `/help#${encodeURIComponent(route.section)}`
+        : '/help';
     case 'board':
       return `/b/${route.code}`;
     case 'gone':
@@ -46,7 +49,11 @@ export function pathFor(route: Route): string {
   }
 }
 
-let current: Route = parse(window.location.pathname);
+function here(): string {
+  return window.location.pathname + window.location.hash;
+}
+
+let current: Route = parse(window.location.pathname, window.location.hash);
 const listeners = new Set<() => void>();
 
 type Transition = (update: () => void) => void;
@@ -58,19 +65,25 @@ export function setRouteTransition(transition: Transition) {
 }
 
 function commit(next: Route) {
-  runTransition(() => {
+  const update = () => {
     current = next;
     for (const listener of listeners) {
       listener();
     }
-  });
+  };
+  // Moving between sections of the same page is a scroll, not a page change.
+  if (next.name === 'help' && current.name === 'help') {
+    update();
+    return;
+  }
+  runTransition(update);
 }
 
 export function navigate(route: Route, options: { replace?: boolean } = {}) {
   const path = pathFor(route);
   if (options.replace) {
     window.history.replaceState(null, '', path);
-  } else if (path !== window.location.pathname) {
+  } else if (path !== here()) {
     window.history.pushState(null, '', path);
   }
   commit(route);
@@ -82,7 +95,7 @@ export function markGone(reason: GoneReason, code?: string) {
 }
 
 window.addEventListener('popstate', () => {
-  commit(parse(window.location.pathname));
+  commit(parse(window.location.pathname, window.location.hash));
 });
 
 function subscribe(listener: () => void) {

@@ -633,3 +633,30 @@ html[data-vt="theme"]::view-transition-new(root) {
     translate: 0 -8px;
   }
 }
+
+/* ---- Help page --------------------------------------------------------- */
+
+/* Anchor jumps scroll smoothly only while motion is on; the JS jumps on the
+   Help page read the same switch. */
+html[data-motion="off"] {
+  scroll-behavior: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+.back-to-top {
+  opacity: 1;
+  translate: 0 0;
+  transition:
+    opacity var(--duration-base) var(--ease-emphasized),
+    translate var(--duration-base) var(--ease-emphasized);
+}
+@starting-style {
+  .back-to-top {
+    opacity: 0;
+    translate: 0 8px;
+  }
+}
