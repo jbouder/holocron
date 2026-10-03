@@ -429,8 +429,8 @@ export function HelpPage() {
           <p>
             The gear icon holds a motion switch, the timer sound, the theme, and
             your name. Themes: System (follows your device), Light, Dark (side),
-            and three just for fun: Dagobah, Tatooine and Synthwave. The theme
-            is yours alone; other people on the board keep their own. Motion
+            and three just for fun: Dagobah, Tatooine and Kamino. The theme is
+            yours alone; other people on the board keep their own. Motion
             follows your operating system's "reduce motion" setting first; when
             that is on, the switch is disabled and nothing animates (the tab
             title shows the timer alert without flashing).

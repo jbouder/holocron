@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import css from '../src/index.css?raw';
+import {
+  isThemeId,
+  LEGACY_THEMES,
+  migrateThemeId,
+  PALETTE_IDS,
+} from '../src/lib/themes';
 
 /**
  * Every theme's tokens against WCAG AA: 4.5:1 for text on the surfaces it
@@ -27,7 +33,7 @@ const THEMES: Record<string, Tokens> = {
   dark,
   dagobah: { ...dark, ...block('html[data-theme="dagobah"]') },
   tatooine: { ...light, ...block('html[data-theme="tatooine"]') },
-  synthwave: { ...dark, ...block('html[data-theme="synthwave"]') },
+  kamino: { ...dark, ...block('html[data-theme="kamino"]') },
 };
 
 /** oklch(L C H) → relative luminance, via OKLab and linear sRGB. */
@@ -78,5 +84,23 @@ describe.each(Object.entries(THEMES))('theme %s', (_, tokens) => {
 
   it.each(NON_TEXT)('%s on %s is at least 3:1', (fg, bg) => {
     expect(contrast(tokens[fg], tokens[bg])).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('theme ids', () => {
+  it('has a token block for every palette theme', () => {
+    expect(Object.keys(THEMES).sort()).toEqual(
+      ['light', 'dark', ...PALETTE_IDS].sort(),
+    );
+  });
+
+  it('maps retired ids to live themes', () => {
+    for (const [old, next] of Object.entries(LEGACY_THEMES)) {
+      expect(isThemeId(old)).toBe(false);
+      expect(isThemeId(next)).toBe(true);
+    }
+    expect(migrateThemeId('synthwave')).toBe('kamino');
+    expect(migrateThemeId('dagobah')).toBe('dagobah');
+    expect(migrateThemeId(null)).toBeNull();
   });
 });

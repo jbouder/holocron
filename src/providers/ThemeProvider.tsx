@@ -10,6 +10,7 @@ import {
 import { withViewTransition } from '@/lib/motion';
 import {
   isThemeId,
+  migrateThemeId,
   PALETTE_IDS,
   type ThemeId,
   themeOption,
@@ -33,8 +34,13 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 /** No saved choice (or an unknown one) means follow the OS. */
 function readTheme(): ThemeId {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(STORAGE_KEY);
+    const saved = migrateThemeId(stored);
     if (isThemeId(saved)) {
+      if (saved !== stored) {
+        // Rewrite a retired id so the inline script needs no mapping later.
+        localStorage.setItem(STORAGE_KEY, saved);
+      }
       return saved;
     }
   } catch {
