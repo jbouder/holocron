@@ -23,8 +23,8 @@ WebSockets, and wipes itself on an alarm.
 
 - **Boards and codes.** Anyone can create a board. The six-character code (or
   the link, or the QR code in the share dialog) is the only invitation. Six templates: Went well / To improve,
-  Start / Stop / Continue, Mad / Sad / Glad, 4Ls, Dagobah, Blank. Columns are
-  editable afterwards.
+  Start / Stop / Continue, Mad / Sad / Glad, 4Ls, Dagobah, Blank. Each column has a one-line prompt
+  under its title. Columns and prompts are editable afterwards.
 - **Phases.** A stepper moves everyone at once. In *Write*, other people's
   cards are blurred so nobody anchors on the first idea. In *Vote*, each
   person spends a budget of dot votes (default 5, several per card allowed).
@@ -47,8 +47,9 @@ WebSockets, and wipes itself on an alarm.
   and reactions, comments, action items. Same output from the UI and the
   `/export.md` endpoint.
 - **Facilitation.** By default anyone on the board can move the phase, set
-  the timer, rename the board, and add, rename or remove columns. The owner
-  can lock all of that to themselves ("Only I can facilitate").
+  the timer, rename the board, add, rename or remove columns, and edit
+  column prompts. The owner can lock all of that to themselves ("Only I can
+  facilitate").
 - **Ownership.** The creator can change settings (vote budget, anonymity,
   blurring, the facilitation lock), delete any card or comment, and delete
   the board early. Ownership is a token in the creating browser; the server

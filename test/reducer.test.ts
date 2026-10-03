@@ -16,6 +16,7 @@ import {
   votesFor,
   votesUsed,
 } from '#shared/reducer';
+import { TEMPLATES } from '#shared/templates';
 import type { Actor, Board } from '#shared/types';
 
 const owner: Actor = { id: 'owner', name: 'Leia', isOwner: true };
@@ -300,6 +301,81 @@ describe('facilitation', () => {
     ).toThrow(/at least one/);
   });
 
+  it('sets and clears a column prompt, on one line', () => {
+    let board = reduce(
+      fresh(),
+      {
+        type: 'setColumnPrompt',
+        id: 'col-1',
+        prompt: 'What  should\nwe keep?',
+      },
+      han,
+    );
+    expect(board.columns[0].prompt).toBe('What should we keep?');
+    board = reduce(
+      board,
+      { type: 'setColumnPrompt', id: 'col-1', prompt: '' },
+      han,
+    );
+    expect(board.columns[0].prompt).toBe('');
+    expect(() =>
+      reduce(
+        board,
+        { type: 'setColumnPrompt', id: 'col-x', prompt: 'Hi' },
+        han,
+      ),
+    ).toThrow(/gone/);
+  });
+
+  it('locks column prompts to the owner with facilitation', () => {
+    const locked = reduce(
+      fresh(),
+      { type: 'updateSettings', settings: { facilitatorOnly: true } },
+      owner,
+    );
+    const op: Op = { type: 'setColumnPrompt', id: 'col-1', prompt: 'Kudos' };
+    expect(() => reduce(locked, op, han)).toThrow(/owner/);
+    expect(reduce(locked, op, owner).columns[0].prompt).toBe('Kudos');
+  });
+
+  it('caps the prompt length in the protocol', () => {
+    const ok = OpSchema.safeParse({
+      type: 'setColumnPrompt',
+      id: 'col-1',
+      prompt: 'x'.repeat(LIMITS.columnPromptMax),
+    });
+    const tooLong = OpSchema.safeParse({
+      type: 'setColumnPrompt',
+      id: 'col-1',
+      prompt: 'x'.repeat(LIMITS.columnPromptMax + 1),
+    });
+    const empty = OpSchema.safeParse({
+      type: 'setColumnPrompt',
+      id: 'col-1',
+      prompt: '   ',
+    });
+    expect(ok.success).toBe(true);
+    expect(tooLong.success).toBe(false);
+    expect(empty.success).toBe(true);
+  });
+
+  it('gives new columns an empty prompt and templates their defaults', () => {
+    const board = reduce(
+      fresh(),
+      { type: 'addColumn', id: 'col-x', title: 'Kudos' },
+      owner,
+    );
+    expect(board.columns.at(-1)?.prompt).toBe('');
+    expect(board.columns[0].prompt).toBe('What worked that we should keep?');
+    for (const t of TEMPLATES) {
+      if (t.id === 'blank') continue;
+      for (const c of t.columns) {
+        expect(c.prompt.length).toBeGreaterThan(0);
+        expect(c.prompt.length).toBeLessThanOrEqual(LIMITS.columnPromptMax);
+      }
+    }
+  });
+
   it('renames a participant and their non-anonymous cards', () => {
     const board = apply(fresh(), [
       [add('a', 'signed'), han],
@@ -341,6 +417,18 @@ describe('action items and export', () => {
     expect(md).toContain('  - Pairing worked _(Han)_');
     expect(md).toContain('- [x] Fix the flaky test — Luke');
     expect(md).toContain('_No cards._');
+    expect(md).toContain(
+      '## Went well\n\n_What worked that we should keep?_\n\n- **Group**',
+    );
+  });
+
+  it('leaves out an empty prompt', () => {
+    const board = reduce(
+      fresh(),
+      { type: 'setColumnPrompt', id: 'col-1', prompt: '' },
+      owner,
+    );
+    expect(boardToMarkdown(board, 0)).toContain('## Went well\n\n_No cards._');
   });
 });
 
@@ -610,6 +698,16 @@ describe('upgradeBoard', () => {
     const upgraded = upgradeBoard(old as Board);
     expect(upgraded.reactions).toEqual([]);
     expect(upgraded.comments).toEqual([]);
+  });
+
+  it('gives columns stored before prompts existed an empty prompt', () => {
+    const board = fresh();
+    const old = {
+      ...board,
+      columns: board.columns.map(({ prompt: _p, ...c }) => c),
+    };
+    const upgraded = upgradeBoard(old as Board);
+    expect(upgraded.columns.map((c) => c.prompt)).toEqual(['', '', '']);
   });
 });
 

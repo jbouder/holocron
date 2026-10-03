@@ -22,6 +22,8 @@ export interface Settings {
 export interface Column {
   id: string;
   title: string;
+  /** A one-line hint under the title. Empty means none. */
+  prompt: string;
   position: number;
 }
 

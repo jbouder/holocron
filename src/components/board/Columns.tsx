@@ -100,6 +100,7 @@ export function Columns({ board, you, dispatch }: ColumnsProps) {
             index={i}
             columnId={column.id}
             title={column.title}
+            prompt={column.prompt}
             board={board}
             you={you}
             canFacilitate={canFacilitate}
@@ -138,6 +139,7 @@ interface ColumnViewProps {
   index: number;
   columnId: string;
   title: string;
+  prompt: string;
   board: Board;
   you: You;
   canFacilitate: boolean;
@@ -150,6 +152,7 @@ function ColumnView({
   index,
   columnId,
   title,
+  prompt,
   board,
   you,
   canFacilitate,
@@ -168,6 +171,17 @@ function ColumnView({
       dispatch({ type: 'renameColumn', id: columnId, title: next });
     }
     setRenaming(false);
+  }
+
+  const [editingPrompt, setEditingPrompt] = useState(false);
+  const [promptDraft, setPromptDraft] = useState(prompt);
+
+  function commitPrompt() {
+    const next = promptDraft.trim();
+    if (next !== prompt) {
+      dispatch({ type: 'setColumnPrompt', id: columnId, prompt: next });
+    }
+    setEditingPrompt(false);
   }
 
   return (
@@ -227,6 +241,14 @@ function ColumnView({
                 Rename
               </DropdownMenuItem>
               <DropdownMenuItem
+                onClick={() => {
+                  setPromptDraft(prompt);
+                  setEditingPrompt(true);
+                }}
+              >
+                {prompt ? 'Edit prompt' : 'Add prompt'}
+              </DropdownMenuItem>
+              <DropdownMenuItem
                 variant="destructive"
                 disabled={!canDelete}
                 onClick={() => {
@@ -245,6 +267,32 @@ function ColumnView({
           </DropdownMenu>
         )}
       </header>
+
+      {editingPrompt ? (
+        <div className="px-3 pb-2">
+          <input
+            // biome-ignore lint/a11y/noAutofocus: the user just asked to edit it
+            autoFocus
+            aria-label="Column prompt"
+            placeholder="A one-line hint for this column"
+            className="h-7 w-full rounded-md border bg-background px-2 text-xs outline-ring/50 focus-visible:outline-2"
+            maxLength={LIMITS.columnPromptMax}
+            value={promptDraft}
+            onChange={(e) => setPromptDraft(e.target.value)}
+            onBlur={commitPrompt}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitPrompt();
+              if (e.key === 'Escape') setEditingPrompt(false);
+            }}
+          />
+        </div>
+      ) : (
+        prompt && (
+          <p className="-mt-1 px-3 pb-2 text-xs text-muted-foreground">
+            {prompt}
+          </p>
+        )
+      )}
 
       <div className="px-3 pb-3">
         <Composer
