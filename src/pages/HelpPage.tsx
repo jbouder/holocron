@@ -192,8 +192,9 @@ export function HelpPage() {
           </dl>
           <p>
             By default only the owner can move the phase, set the timer, rename
-            the board and change its columns. To share that with everyone, the
-            owner turns off "Only I can facilitate" in Settings.
+            the board, change its columns, and tick off or remove action items.
+            To share that with everyone, the owner turns off "Only I can
+            facilitate" in Settings.
           </p>
         </Section>
 
@@ -266,9 +267,10 @@ export function HelpPage() {
             moves the whole group.
           </p>
           <p>
-            You can always move and group your own cards. Arranging other
-            people's cards is for the owner, unless they have turned off "Only I
-            can facilitate".
+            You can always move your own cards, and group them with each other.
+            Arranging other people's cards, including dropping yours onto
+            theirs, is for the owner, unless they have turned off "Only I can
+            facilitate".
           </p>
         </Section>
 
@@ -286,9 +288,10 @@ export function HelpPage() {
 
         <Section id="actions" title="Action items" index={9}>
           <p>
-            Open the Action items panel from the toolbar. Add an item, name an
-            owner, and tick it off when it is done. Action items are part of the
-            export.
+            Open the Action items panel from the toolbar. Anyone can add an item
+            and name an owner. Ticking items off and removing them is for the
+            board owner while "Only I can facilitate" is on. Action items are
+            part of the export.
           </p>
           <p>
             To record where an action came from, choose Add action item in a

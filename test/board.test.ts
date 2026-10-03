@@ -8,6 +8,8 @@ import {
 import { describe, expect, it, vi } from 'vitest';
 import { LIMITS } from '#shared/limits';
 import type { CreateBoardResponse, Op, ServerMessage } from '#shared/protocol';
+import { reduce } from '#shared/reducer';
+import type { Board } from '#shared/types';
 import type { BoardObject } from '../worker/board';
 import type { Bindings } from '../worker/env';
 import worker from '../worker/index';
@@ -1236,5 +1238,78 @@ describe('crowded boards', () => {
     const other = await join(created.code, 'late', 'Late', undefined, 'two');
     const snapshot = await other.next('snapshot');
     expect(snapshot.you.id).toBe('late');
+  });
+});
+
+describe('grouping anonymous cards on a locked board', () => {
+  it('names no one when either card is the author’s anonymous one, and every other client can replay it', async () => {
+    const created = await createBoard();
+    const luke = await join(created.code, 'luke', 'Luke');
+    const han = await join(created.code, 'han', 'Han');
+    await Promise.all([luke.next('snapshot'), han.next('snapshot')]);
+
+    const card = (id: string, anonymous: boolean): Op => ({
+      type: 'addCard',
+      id,
+      columnId: 'col-1',
+      text: `Card ${id}`,
+      anonymous,
+    });
+    const ops: Op[] = [
+      card('a', true),
+      card('b', true),
+      card('s', false),
+      // anonymous onto anonymous, signed onto anonymous, anonymous onto
+      // signed: all Han's, so the lock lets them through.
+      { type: 'groupCards', id: 'a', targetId: 'b', groupId: 'g1' },
+      { type: 'ungroupCard', id: 'a' },
+      { type: 'groupCards', id: 's', targetId: 'b', groupId: 'g2' },
+      { type: 'ungroupCard', id: 's' },
+      { type: 'groupCards', id: 'a', targetId: 's', groupId: 'g3' },
+    ];
+    for (const op of ops) {
+      han.send(op);
+    }
+    // Han's join rename is the first echo Luke sees.
+    await vi.waitFor(() =>
+      expect(luke.messages.filter((m) => m.type === 'op')).toHaveLength(
+        ops.length + 1,
+      ),
+    );
+    expect(han.messages.filter((m) => m.type === 'rejected')).toEqual([]);
+
+    // What Luke's browser does: start from the snapshot and reduce each
+    // echo with the actor as sent. None may throw (a throw means a resync
+    // for everyone else on every drag).
+    let board: Board | null = null;
+    for (const m of luke.messages) {
+      if (m.type === 'snapshot') {
+        board = m.board;
+        continue;
+      }
+      if (m.type !== 'op' || !board) {
+        continue;
+      }
+      if (m.op.type === 'groupCards') {
+        expect(JSON.stringify(m)).not.toContain('han');
+        expect(m.actor).toMatchObject({ id: '', name: '' });
+      }
+      board = reduce(
+        board,
+        m.op,
+        {
+          id: m.actor.id,
+          name: m.actor.name,
+          isOwner: m.actor.id !== '' && m.actor.id === board.ownerId,
+          anonymousCardIds: m.actor.anonymousCardIds,
+          anonymousCommentIds: m.actor.anonymousCommentIds,
+        },
+        m.at,
+      );
+    }
+    const groups = Object.fromEntries(
+      (board as Board).cards.map((c) => [c.id, c.groupId]),
+    );
+    expect(groups).toEqual({ a: 'g3', b: null, s: 'g3' });
   });
 });

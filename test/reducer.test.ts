@@ -181,7 +181,7 @@ describe('grouping', () => {
     const board = apply(fresh(), [
       [add('a', 'a'), han],
       [add('b', 'b'), luke],
-      [{ type: 'groupCards', id: 'a', targetId: 'b', groupId: 'g1' }, han],
+      [{ type: 'groupCards', id: 'a', targetId: 'b', groupId: 'g1' }, owner],
     ]);
     const a = board.cards.find((c) => c.id === 'a');
     const b = board.cards.find((c) => c.id === 'b');
@@ -408,7 +408,7 @@ describe('action items and export', () => {
     const board = apply(fresh(), [
       [add('a', 'Pairing worked'), han],
       [add('b', 'Flaky CI', false), luke],
-      [{ type: 'groupCards', id: 'a', targetId: 'b', groupId: 'g1' }, han],
+      [{ type: 'groupCards', id: 'a', targetId: 'b', groupId: 'g1' }, owner],
       [{ type: 'setPhase', phase: 'vote' }, owner],
       [{ type: 'vote', cardId: 'b' }, han],
       [
@@ -420,7 +420,7 @@ describe('action items and export', () => {
         },
         owner,
       ],
-      [{ type: 'toggleActionItem', id: 'ai1' }, han],
+      [{ type: 'toggleActionItem', id: 'ai1' }, owner],
     ]);
     const md = boardToMarkdown(board, 0);
     expect(md).toContain('# Sprint 42');
@@ -1021,7 +1021,9 @@ describe('action items linked to cards', () => {
   });
 
   it('edits keep the link unless one is given; null removes it', () => {
+    // With facilitation open, so Han edits his own links.
     let board = apply(fresh(), [
+      [{ type: 'updateSettings', settings: { facilitatorOnly: false } }, owner],
       [add('a', 'One'), han],
       [add('b', 'Two'), han],
       [addAction('ai', 'a'), han],
@@ -1333,12 +1335,71 @@ describe('permission rules', () => {
     const board = seeded();
     const refused: Op[] = [
       { type: 'moveCard', id: 'h1', columnId: 'col-2' },
-      { type: 'groupCards', id: 'h1', targetId: 'l1', groupId: 'g2' },
+      { type: 'groupCards', id: 'h1', targetId: 'h2', groupId: 'g2' },
       { type: 'ungroupCard', id: 'h1' },
     ];
     for (const op of refused) {
       expect(() => reduce(board, op, luke)).toThrow(/owner/);
       expect(() => reduce(board, op, han)).not.toThrow();
+    }
+  });
+
+  it('locks grouping onto someone else’s card, which changes theirs too', () => {
+    const board = seeded();
+    expect(() =>
+      reduce(
+        board,
+        { type: 'groupCards', id: 'l1', targetId: 'h1', groupId: 'n' },
+        luke,
+      ),
+    ).toThrow(/owner/);
+    expect(() =>
+      reduce(
+        board,
+        { type: 'groupCards', id: 'l1', targetId: 'h1', groupId: 'n' },
+        owner,
+      ),
+    ).not.toThrow();
+  });
+
+  it('refuses a new group id that names another group', () => {
+    const open = apply(fresh(), [
+      [add('a', 'A'), han],
+      [add('b', 'B'), han],
+      [add('c', 'C'), luke],
+      [add('d', 'D'), luke],
+      [{ type: 'groupCards', id: 'a', targetId: 'b', groupId: 'hans' }, han],
+    ]);
+    // Luke groups his own cards, but asks for Han's group id.
+    expect(() =>
+      reduce(
+        open,
+        { type: 'groupCards', id: 'c', targetId: 'd', groupId: 'hans' },
+        luke,
+      ),
+    ).toThrow('That group id is taken');
+  });
+
+  it('locks editing, ticking and deleting action items, not adding them', () => {
+    const board = apply(seeded(), [
+      [{ type: 'addActionItem', id: 'ai', text: 'Fix CI', owner: '' }, luke],
+    ]);
+    const locked: Op[] = [
+      { type: 'editActionItem', id: 'ai', text: 'Nope', owner: '' },
+      { type: 'toggleActionItem', id: 'ai' },
+      { type: 'deleteActionItem', id: 'ai' },
+    ];
+    for (const op of locked) {
+      expect(() => reduce(board, op, luke)).toThrow(/owner/);
+      expect(() => reduce(board, op, owner)).not.toThrow();
+    }
+    const open = reduce(
+      board,
+      { type: 'updateSettings', settings: { facilitatorOnly: false } },
+      owner,
+    );
+    for (const op of locked) {
+      expect(() => reduce(open, op, luke)).not.toThrow();
     }
   });
 

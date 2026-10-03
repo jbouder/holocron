@@ -150,6 +150,9 @@ export function CardView({
       data-group-id={card.groupId ?? ''}
       data-flip-id={grouped ? card.id : undefined}
       data-blurred={blurred}
+      // Dropping a card here regroups this one too; not offered when you
+      // cannot arrange it (useCardDrag skips it).
+      data-no-group={canArrange ? undefined : ''}
       className={cn(
         'retro-card drop-target group relative rounded-lg border bg-card p-3 text-sm text-card-foreground shadow-xs',
         // The drag handle lives in the left gutter, so widen it rather than
