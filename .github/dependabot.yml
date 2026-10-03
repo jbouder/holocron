@@ -15,6 +15,8 @@ updates:
       minor-and-patch:
         update-types: [minor, patch]
 
+  # Workflows pin each action to a commit SHA with a `# vX.Y.Z` comment.
+  # Dependabot moves both together.
   - package-ecosystem: github-actions
     directory: /
     schedule:

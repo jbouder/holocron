@@ -279,6 +279,23 @@ ReDoS via nested patterns). It's only reachable through
 CLI. Not shipped to the Worker or the browser, and it never sees user input.
 No action beyond `bun update` when shadcn bumps it.
 
+### Workflows
+
+Every `uses:` in `.github/workflows/*.yml` is pinned to a full commit SHA,
+with the release it points to in a trailing `# vX.Y.Z` comment (fixed in
+[#93](https://github.com/jbouder/holocron/issues/93)). A tag can be
+repointed by whoever controls the action's repository; a SHA can't. This
+matters most in the deploy and preview jobs, where `wrangler-action` gets
+`CLOUDFLARE_API_TOKEN`: any earlier action in the same job (`checkout`,
+`setup-bun`, `cache`) runs on the same runner and could tamper with that
+step, so all of them are pinned. Dependabot's monthly `github-actions`
+updates move the SHA and the comment together.
+
+The Cloudflare token reaches only the `gate` jobs, which test that it is set
+in a shell step with no third-party code, and the jobs that deploy or delete
+a Worker. CI (`check`) never sees it, and fork and Dependabot PRs get no
+repository secrets.
+
 ## Findings
 
 None open. Every finding from the review is fixed, and the sections above
