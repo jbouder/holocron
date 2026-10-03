@@ -22,4 +22,8 @@ export const LIMITS = {
   timerMaxMs: 15 * 60_000,
   /** Ops a single socket may send per second before being refused. */
   opsPerSecond: 20,
+  /** How long an ownership handoff code works after the owner creates it. */
+  handoffTtlMs: 10 * 60_000,
+  /** Wrong handoff codes a board accepts per minute before refusing tries. */
+  handoffAttemptsPerMinute: 5,
 } as const;

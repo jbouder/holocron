@@ -7,7 +7,12 @@ import { Columns } from '@/components/board/Columns';
 import { NameDialog } from '@/components/NameDialog';
 import { useBoard } from '@/hooks/useBoard';
 import { ApiError, getBoardMeta } from '@/lib/api';
-import { getOwnerToken, useIdentity } from '@/lib/identity';
+import {
+  clearOwnerToken,
+  getOwnerToken,
+  setOwnerToken,
+  useIdentity,
+} from '@/lib/identity';
 import { withViewTransition } from '@/lib/motion';
 import { rememberBoard } from '@/lib/recent-boards';
 import { markGone, navigate } from '@/lib/router';
@@ -22,7 +27,7 @@ export function BoardPage({ code }: { code: string }) {
   const identity = useIdentity();
   const toast = useToast();
   const { active } = useMotion();
-  const [ownerToken] = useState(() => getOwnerToken(code));
+  const [ownerToken, setOwnerTokenState] = useState(() => getOwnerToken(code));
   const [checked, setChecked] = useState(false);
   // The action items sheet lives in the toolbar, but a card's menu opens it
   // too (with the new item linked to that card), so its state lives here.
@@ -31,7 +36,20 @@ export function BoardPage({ code }: { code: string }) {
     cardId: null,
   });
   const connection = useBoard(code, identity, ownerToken);
-  const { status, board, you, send, rejection } = connection;
+  const { status, board, you, send, rejection, refusedToken } = connection;
+
+  // Ownership was handed off (or the token was stale): forget the token.
+  useEffect(() => {
+    if (refusedToken !== null && refusedToken === ownerToken) {
+      clearOwnerToken(code);
+      setOwnerTokenState(null);
+    }
+  }, [refusedToken, ownerToken, code]);
+
+  function claimOwnership(token: string) {
+    setOwnerToken(code, token);
+    setOwnerTokenState(token);
+  }
 
   // Does the board exist at all? Cheaper and clearer than a failing socket.
   useEffect(() => {
@@ -146,6 +164,7 @@ export function BoardPage({ code }: { code: string }) {
             board={board}
             you={you}
             ownerToken={ownerToken}
+            onClaimed={claimOwnership}
             dispatch={dispatch}
             actions={actions}
             onActionsChange={setActions}

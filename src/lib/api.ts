@@ -1,7 +1,12 @@
 import type { ExportFormat } from '#shared/export';
-import type { BoardMeta, CreateBoardResponse } from '#shared/protocol';
+import type {
+  BoardMeta,
+  CreateBoardResponse,
+  HandoffResponse,
+  RedeemHandoffResponse,
+} from '#shared/protocol';
 
-/** The three HTTP calls. Everything else happens over the WebSocket. */
+/** The HTTP calls. Everything else happens over the WebSocket. */
 
 export class ApiError extends Error {
   constructor(
@@ -53,6 +58,27 @@ export function deleteBoard(code: string, ownerToken: string): Promise<void> {
   return request(`/api/boards/${encodeURIComponent(code)}`, {
     method: 'DELETE',
     headers: { authorization: `Bearer ${ownerToken}` },
+  });
+}
+
+export function startHandoff(
+  code: string,
+  ownerToken: string,
+): Promise<HandoffResponse> {
+  return request(`/api/boards/${encodeURIComponent(code)}/handoff`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${ownerToken}` },
+  });
+}
+
+export function redeemHandoff(
+  code: string,
+  input: { participantId: string; secret: string; code: string },
+): Promise<RedeemHandoffResponse> {
+  return request(`/api/boards/${encodeURIComponent(code)}/handoff/redeem`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(input),
   });
 }
 

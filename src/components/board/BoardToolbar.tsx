@@ -6,6 +6,7 @@ import {
   DownloadSimpleIcon,
   GearSixIcon,
   HourglassIcon,
+  KeyIcon,
   ShareNetworkIcon,
   SparkleIcon,
   TrashIcon,
@@ -22,6 +23,10 @@ import {
 import { AnalysisPanel } from '@/components/board/AnalysisPanel';
 import { DeleteBoardDialog } from '@/components/board/DeleteBoardDialog';
 import { ExportDialog } from '@/components/board/ExportDialog';
+import {
+  ClaimOwnershipDialog,
+  HandoffDialog,
+} from '@/components/board/HandoffDialog';
 import { PhaseStepper } from '@/components/board/PhaseStepper';
 import { Presence } from '@/components/board/Presence';
 import { SettingsDialog } from '@/components/board/SettingsDialog';
@@ -47,6 +52,8 @@ interface BoardToolbarProps {
   board: Board;
   you: You;
   ownerToken: string | null;
+  /** A handoff code was redeemed here; this browser holds the new token. */
+  onClaimed: (ownerToken: string) => void;
   dispatch: (op: Op) => void;
   actions: ActionsSheetState;
   onActionsChange: (next: ActionsSheetState) => void;
@@ -57,6 +64,7 @@ export function BoardToolbar({
   board,
   you,
   ownerToken,
+  onClaimed,
   dispatch,
   actions,
   onActionsChange,
@@ -66,6 +74,8 @@ export function BoardToolbar({
   const [exporting, setExporting] = useState(false);
   const [settings, setSettings] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [handingOff, setHandingOff] = useState(false);
+  const [claiming, setClaiming] = useState(false);
   const [analysing, setAnalysing] = useState(false);
   const openActionsSheet = () => onActionsChange({ open: true, cardId: null });
 
@@ -153,12 +163,16 @@ export function BoardToolbar({
                     </span>
                   )}
                 </DropdownMenuItem>
-                {you.isOwner && (
+                <DropdownMenuSeparator />
+                {you.isOwner ? (
                   <>
-                    <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => setSettings(true)}>
                       <GearSixIcon />
                       Board settings
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setHandingOff(true)}>
+                      <KeyIcon />
+                      Hand off ownership
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       variant="destructive"
@@ -168,6 +182,11 @@ export function BoardToolbar({
                       Delete board
                     </DropdownMenuItem>
                   </>
+                ) : (
+                  <DropdownMenuItem onClick={() => setClaiming(true)}>
+                    <KeyIcon />
+                    Claim ownership
+                  </DropdownMenuItem>
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
@@ -298,7 +317,7 @@ export function BoardToolbar({
         you={you}
         dispatch={dispatch}
       />
-      {you.isOwner && (
+      {you.isOwner ? (
         <>
           <AnalysisPanel
             open={analysing}
@@ -320,7 +339,20 @@ export function BoardToolbar({
             title={board.title}
             ownerToken={ownerToken}
           />
+          <HandoffDialog
+            open={handingOff}
+            onOpenChange={setHandingOff}
+            code={board.code}
+            ownerToken={ownerToken}
+          />
         </>
+      ) : (
+        <ClaimOwnershipDialog
+          open={claiming}
+          onOpenChange={setClaiming}
+          code={board.code}
+          onClaimed={onClaimed}
+        />
       )}
     </div>
   );

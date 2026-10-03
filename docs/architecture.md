@@ -73,6 +73,21 @@ The creating browser keeps the token in `localStorage` and sends it on the
 socket URL and in the `DELETE` request. `isOwner` is derived only from the
 token, never from the participant id.
 
+The owner can **hand the board off**. `POST /api/boards/:code/handoff` (with
+the owner token as a bearer) returns a one-time code in the board-code
+alphabet; the object stores only its SHA-256 (`handoff` in storage) with an
+expiry of ten minutes, and a new code replaces the old one. The next owner
+redeems it with `POST /api/boards/:code/handoff/redeem`, sending their
+participant id and secret: the id has to be seated on the board and bound to
+that secret, exactly as for a socket. On success the object rotates the owner
+token (new hash, old token dead for sockets and `DELETE`), applies a
+`setOwner` op through the reducer so `board.ownerId` moves for everyone,
+flips `isOwner` on the live sockets of both people and sends each a fresh
+snapshot, and returns the new token once. `setOwner` is a server-only op:
+`ClientMessageSchema` cannot carry it. Wrong codes are counted per board,
+and after five in a minute the object refuses further tries until the
+minute passes.
+
 ### Anonymous cards and comments
 
 The document inside the object keeps the real `authorId` on every card and

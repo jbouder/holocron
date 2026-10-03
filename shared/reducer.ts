@@ -1,5 +1,5 @@
 import { LIMITS } from './limits';
-import type { Op } from './protocol';
+import type { BoardOp } from './protocol';
 import { findTemplate } from './templates';
 import {
   type ActionItem,
@@ -297,7 +297,7 @@ function withParticipant(board: Board, actor: Actor): Board {
 /** `now` is the server's clock on the echo, so every client agrees on timestamps. */
 export function reduce(
   input: Board,
-  op: Op,
+  op: BoardOp,
   actor: Actor,
   now: number = Date.now(),
 ): Board {
@@ -767,6 +767,18 @@ export function reduce(
         fail('Only the board owner can change settings');
       }
       return { ...board, settings: { ...board.settings, ...op.settings } };
+    }
+
+    case 'setOwner': {
+      // Only the board object emits this, as the current owner, after a
+      // handoff code is redeemed (clients cannot send it at all).
+      if (!actor.isOwner) {
+        fail('Only the board owner can hand the board off');
+      }
+      if (!board.participants.some((p) => p.id === op.participantId)) {
+        fail('The new owner has to be on the board');
+      }
+      return { ...board, ownerId: op.participantId };
     }
 
     case 'renameBoard': {

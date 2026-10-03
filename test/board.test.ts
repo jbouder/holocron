@@ -603,3 +603,197 @@ describe('participant identity', () => {
     expect(response.status).toBe(400);
   });
 });
+
+describe('ownership handoff', () => {
+  const base = (code: string) => `http://holocron.test/api/boards/${code}`;
+
+  function startHandoff(code: string, token?: string) {
+    return call(
+      new Request(`${base(code)}/handoff`, {
+        method: 'POST',
+        headers: token ? { authorization: `Bearer ${token}` } : {},
+      }),
+    );
+  }
+
+  function redeem(
+    code: string,
+    handoffCode: string,
+    pid = 'han',
+    secret = `secret-of-${pid}`,
+  ) {
+    return call(
+      new Request(`${base(code)}/handoff/redeem`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ participantId: pid, secret, code: handoffCode }),
+      }),
+    );
+  }
+
+  async function handoffCode(code: string, token: string) {
+    const response = await startHandoff(code, token);
+    expect(response.status).toBe(201);
+    return (await response.json()) as { code: string; expiresAt: number };
+  }
+
+  it('only lets the owner create a code', async () => {
+    const created = await createBoard();
+    expect((await startHandoff(created.code)).status).toBe(401);
+    expect((await startHandoff(created.code, 'nope')).status).toBe(403);
+
+    const handoff = await handoffCode(created.code, created.ownerToken);
+    expect(handoff.code).toMatch(/^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$/);
+    expect(handoff.expiresAt - Date.now()).toBeLessThanOrEqual(
+      LIMITS.handoffTtlMs,
+    );
+
+    // Only the hash is stored.
+    await runInDurableObject(stubFor(created.code), async (_i, state) => {
+      const stored = await state.storage.get<{ hash: string }>('handoff');
+      expect(stored?.hash).toHaveLength(64);
+      expect(JSON.stringify(stored)).not.toContain(handoff.code);
+    });
+  });
+
+  it('hands ownership over live and rotates the token', async () => {
+    const created = await createBoard();
+    const leia = await join(
+      created.code,
+      'owner-1',
+      'Leia',
+      created.ownerToken,
+    );
+    const han = await join(created.code, 'han', 'Han');
+    expect((await leia.next('snapshot')).you.isOwner).toBe(true);
+    expect((await han.next('snapshot')).you.isOwner).toBe(false);
+
+    const { code } = await handoffCode(created.code, created.ownerToken);
+    const leiaSeen = leia.messages.length;
+    const hanSeen = han.messages.length;
+    // Lower-case and spaced, the way people type it.
+    const response = await redeem(
+      created.code,
+      `${code.slice(0, 3).toLowerCase()} ${code.slice(3)}`,
+    );
+    expect(response.status).toBe(200);
+    const { ownerToken } = (await response.json()) as { ownerToken: string };
+    expect(ownerToken).toHaveLength(64);
+    expect(ownerToken).not.toBe(created.ownerToken);
+
+    // Everyone sees ownerId move; both sockets get a fresh `you`.
+    const echo = await han.next('op', hanSeen);
+    expect(echo.op).toEqual({ type: 'setOwner', participantId: 'han' });
+    expect((await han.next('snapshot', hanSeen)).you.isOwner).toBe(true);
+    const leiaNow = await leia.next('snapshot', leiaSeen);
+    expect(leiaNow.you.isOwner).toBe(false);
+    expect(leiaNow.board.ownerId).toBe('han');
+
+    // The new owner can act as owner on the same socket, the old one cannot.
+    const ok = han.send({
+      type: 'updateSettings',
+      settings: { votesPerPerson: 3 },
+    });
+    const applied = await han.next('op', hanSeen + 2);
+    expect(applied.opId).toBe(ok);
+    leia.send({ type: 'updateSettings', settings: { votesPerPerson: 9 } });
+    expect((await leia.next('rejected', leiaSeen)).reason).toMatch(/owner/);
+
+    // The old token is dead for sockets and DELETE.
+    const stale = await join(
+      created.code,
+      'owner-1',
+      'Leia',
+      created.ownerToken,
+    );
+    expect((await stale.next('snapshot')).you.isOwner).toBe(false);
+    const del = await call(
+      new Request(base(created.code), {
+        method: 'DELETE',
+        headers: { authorization: `Bearer ${created.ownerToken}` },
+      }),
+    );
+    expect(del.status).toBe(403);
+
+    // The new token survives a reload of the object and owns the board.
+    const fresh = await join(created.code, 'han', 'Han', ownerToken);
+    expect((await fresh.next('snapshot')).you.isOwner).toBe(true);
+    await runInDurableObject(stubFor(created.code), async (_i, state) => {
+      expect(await state.storage.get('handoff')).toBeUndefined();
+    });
+  });
+
+  it('works once', async () => {
+    const created = await createBoard();
+    await (await join(created.code, 'han', 'Han')).next('snapshot');
+    await (await join(created.code, 'luke', 'Luke')).next('snapshot');
+    const { code } = await handoffCode(created.code, created.ownerToken);
+    expect((await redeem(created.code, code)).status).toBe(200);
+    expect((await redeem(created.code, code, 'luke')).status).toBe(403);
+  });
+
+  it('expires, and a new code cancels the old one', async () => {
+    const created = await createBoard();
+    await (await join(created.code, 'han', 'Han')).next('snapshot');
+
+    const first = await handoffCode(created.code, created.ownerToken);
+    const second = await handoffCode(created.code, created.ownerToken);
+    expect((await redeem(created.code, first.code)).status).toBe(403);
+
+    // Ten minutes later.
+    await runInDurableObject(stubFor(created.code), async (instance) => {
+      const pending = (
+        instance as unknown as { handoff: { expiresAt: number } }
+      ).handoff;
+      pending.expiresAt = Date.now() - 1;
+    });
+    expect((await redeem(created.code, second.code)).status).toBe(403);
+  });
+
+  it('needs the redeemer seated and their own browser secret', async () => {
+    const created = await createBoard();
+    await (await join(created.code, 'han', 'Han')).next('snapshot');
+    const { code } = await handoffCode(created.code, created.ownerToken);
+
+    // Someone else brings Han's id with the wrong secret.
+    const impostor = await redeem(created.code, code, 'han', 'secret-of-lando');
+    expect(impostor.status).toBe(403);
+    expect(((await impostor.json()) as { error: string }).error).toMatch(
+      /Open this board/,
+    );
+    // A participant who never joined.
+    expect((await redeem(created.code, code, 'ghost')).status).toBe(403);
+    // The owner redeeming their own code.
+    await (await join(created.code, 'owner-1', 'Leia')).next('snapshot');
+    expect((await redeem(created.code, code, 'owner-1')).status).toBe(409);
+
+    // None of that used the code up.
+    expect((await redeem(created.code, code)).status).toBe(200);
+  });
+
+  it('stops guessing after a few wrong codes', async () => {
+    const created = await createBoard();
+    await (await join(created.code, 'han', 'Han')).next('snapshot');
+    const { code } = await handoffCode(created.code, created.ownerToken);
+    const wrong = code === 'AAAAAA' ? 'BBBBBB' : 'AAAAAA';
+    for (let i = 0; i < LIMITS.handoffAttemptsPerMinute; i++) {
+      expect((await redeem(created.code, wrong)).status).toBe(403);
+    }
+    // Even the right code waits out the minute.
+    expect((await redeem(created.code, code)).status).toBe(429);
+  });
+
+  it('rejects malformed codes without asking the board', async () => {
+    const created = await createBoard();
+    expect((await redeem(created.code, 'nope!')).status).toBe(400);
+  });
+
+  it('goes with the wipe', async () => {
+    const created = await createBoard();
+    await handoffCode(created.code, created.ownerToken);
+    await runDurableObjectAlarm(stubFor(created.code));
+    await runInDurableObject(stubFor(created.code), async (_i, state) => {
+      expect(await state.storage.get('handoff')).toBeUndefined();
+    });
+  });
+});

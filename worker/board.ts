@@ -1,9 +1,12 @@
 import { DurableObject } from 'cloudflare:workers';
+import { generateCode, normalizeCode } from '#shared/codes';
 import { type ExportFormat, exportBoard } from '#shared/export';
 import { LIMITS } from '#shared/limits';
 import {
   type BoardMeta,
+  type BoardOp,
   ClientMessageSchema,
+  type HandoffResponse,
   type Op,
   type OpActor,
   type ServerMessage,
@@ -49,8 +52,29 @@ export interface CreateInput {
   expiresAt: number;
 }
 
+export interface RedeemInput {
+  participantId: string;
+  secret: string;
+  code: string;
+}
+
+export type RedeemResult =
+  | { ok: true; ownerToken: string }
+  | {
+      ok: false;
+      reason: 'missing' | 'limited' | 'stranger' | 'owner' | 'invalid';
+    };
+
+/** A pending ownership handoff. Only the code's hash is kept. */
+interface Handoff {
+  hash: string;
+  expiresAt: number;
+}
+
 /** Storage key (KV side of the same SQLite) for the participant bindings. */
 const SECRETS_KEY = 'participantSecrets';
+/** Storage key for the pending handoff, if any. */
+const HANDOFF_KEY = 'handoff';
 
 export class BoardObject extends DurableObject<Bindings> {
   private board: Board | null = null;
@@ -62,6 +86,10 @@ export class BoardObject extends DurableObject<Bindings> {
    * act (or read `you`) as someone else. Never sent to clients.
    */
   private secrets: Record<string, string> = {};
+  /** At most one live handoff code; creating another replaces it. */
+  private handoff: Handoff | null = null;
+  /** Times of recent wrong handoff codes, for the guessing limit. */
+  private handoffMisses: number[] = [];
   /** Per-socket timestamps of recent ops, for the flood limit. */
   private recent = new WeakMap<WebSocket, number[]>();
 
@@ -72,6 +100,7 @@ export class BoardObject extends DurableObject<Bindings> {
       if (this.board) {
         this.secrets =
           (await ctx.storage.get<Record<string, string>>(SECRETS_KEY)) ?? {};
+        this.handoff = (await ctx.storage.get<Handoff>(HANDOFF_KEY)) ?? null;
       }
       // Keep-alives answered by the runtime without waking the object.
       this.ctx.setWebSocketAutoResponse(
@@ -120,7 +149,10 @@ export class BoardObject extends DurableObject<Bindings> {
     }
     this.ctx.storage.sql.exec(
       `INSERT INTO board (id, json, seq, owner_hash) VALUES (1, ?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET json = excluded.json, seq = excluded.seq`,
+       ON CONFLICT(id) DO UPDATE SET
+         json = excluded.json,
+         seq = excluded.seq,
+         owner_hash = excluded.owner_hash`,
       JSON.stringify(this.stripPresence(this.board)),
       this.seq,
       this.ownerHash,
@@ -150,6 +182,8 @@ export class BoardObject extends DurableObject<Bindings> {
     this.seq = 0;
     this.ownerHash = null;
     this.secrets = {};
+    this.handoff = null;
+    this.handoffMisses = [];
     await this.ctx.storage.deleteAlarm();
     await this.ctx.storage.deleteAll();
   }
@@ -212,6 +246,103 @@ export class BoardObject extends DurableObject<Bindings> {
     }
     await this.wipe('deleted');
     return 'ok';
+  }
+
+  /**
+   * Issue a one-time code the owner reads to the next owner. Replaces any
+   * earlier code. Only the hash is stored, and `wipe()` takes it with
+   * everything else.
+   */
+  async startHandoff(
+    token: string,
+  ): Promise<HandoffResponse | 'forbidden' | 'missing'> {
+    await this.expireIfDue();
+    if (!this.board || this.ownerHash === null) {
+      return 'missing';
+    }
+    if ((await sha256(token)) !== this.ownerHash) {
+      return 'forbidden';
+    }
+    const code = generateCode();
+    const handoff: Handoff = {
+      hash: await sha256(code),
+      expiresAt: Math.min(
+        Date.now() + LIMITS.handoffTtlMs,
+        this.board.expiresAt,
+      ),
+    };
+    this.handoff = handoff;
+    await this.ctx.storage.put(HANDOFF_KEY, handoff);
+    return { code, expiresAt: handoff.expiresAt };
+  }
+
+  /**
+   * Redeem a handoff code for the participant whose browser secret comes
+   * with it. Rotates the owner token, so the previous owner's token stops
+   * working everywhere, and moves `board.ownerId` through the reducer.
+   */
+  async redeemHandoff(input: RedeemInput): Promise<RedeemResult> {
+    await this.expireIfDue();
+    if (!this.board || this.ownerHash === null) {
+      return { ok: false, reason: 'missing' };
+    }
+    // Hash everything up front: from here to the rotation nothing awaits,
+    // so two redeems of one code cannot both get through.
+    const [secretHash, codeHash] = await Promise.all([
+      sha256(input.secret),
+      sha256(normalizeCode(input.code)),
+    ]);
+    const ownerToken = randomToken();
+    const ownerHash = await sha256(ownerToken);
+
+    const now = Date.now();
+    this.handoffMisses = this.handoffMisses.filter((t) => now - t < 60_000);
+    if (this.handoffMisses.length >= LIMITS.handoffAttemptsPerMinute) {
+      return { ok: false, reason: 'limited' };
+    }
+    // The same check a socket gets: the id has to be seated on this board
+    // and bound to this browser's secret.
+    const id = input.participantId;
+    if (
+      this.secrets[id] !== secretHash ||
+      !this.board.participants.some((p) => p.id === id)
+    ) {
+      return { ok: false, reason: 'stranger' };
+    }
+    if (this.board.ownerId === id) {
+      return { ok: false, reason: 'owner' };
+    }
+    const handoff = this.handoff;
+    if (!handoff || handoff.expiresAt <= now || handoff.hash !== codeHash) {
+      this.handoffMisses.push(now);
+      return { ok: false, reason: 'invalid' };
+    }
+
+    this.handoff = null;
+    this.ownerHash = ownerHash;
+    const from = this.board.participants.find(
+      (p) => p.id === this.board?.ownerId,
+    );
+    // Persists the new hash with the document.
+    this.apply(
+      { type: 'setOwner', participantId: id },
+      { id: this.board.ownerId, name: from?.name ?? '', isOwner: true },
+      `handoff-${crypto.randomUUID()}`,
+      [],
+    );
+    // Live sockets follow without reconnecting: the old token's sockets
+    // lose ownership, the new owner's gain it, and each gets a fresh `you`.
+    for (const ws of this.ctx.getWebSockets()) {
+      const attachment = ws.deserializeAttachment() as Attachment | null;
+      if (!attachment || attachment.isOwner === (attachment.id === id)) {
+        continue;
+      }
+      const next: Attachment = { ...attachment, isOwner: attachment.id === id };
+      ws.serializeAttachment(next);
+      this.sendSnapshot(ws, this.actorFor(next));
+    }
+    await this.ctx.storage.delete(HANDOFF_KEY);
+    return { ok: true, ownerToken };
   }
 
   async export(format: ExportFormat): Promise<string | null> {
@@ -386,7 +517,7 @@ export class BoardObject extends DurableObject<Bindings> {
    * when the reducer refuses. `except` lists sockets that should not get the
    * echo (used for the join rename, which the joiner learns from the snapshot).
    */
-  private apply(op: Op, actor: Actor, opId: string, except: WebSocket[]) {
+  private apply(op: BoardOp, actor: Actor, opId: string, except: WebSocket[]) {
     if (!this.board) {
       throw new OpError('This board has expired');
     }
@@ -429,7 +560,7 @@ export class BoardObject extends DurableObject<Bindings> {
    */
   private anonymousTarget(
     board: Board,
-    op: Op,
+    op: BoardOp,
     actor: Actor,
   ): Pick<OpActor, 'anonymousCardIds' | 'anonymousCommentIds'> | null {
     switch (op.type) {

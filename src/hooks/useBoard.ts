@@ -37,6 +37,11 @@ export interface BoardConnection {
   send: (op: Op) => boolean;
   /** The most recent server rejection, for a toast. */
   rejection: { reason: string; at: number } | null;
+  /**
+   * An owner token the server did not accept (it rotated after a handoff,
+   * or was never valid). The page forgets it.
+   */
+  refusedToken: string | null;
 }
 
 const MAX_BACKOFF_MS = 15_000;
@@ -55,6 +60,7 @@ export function useBoard(
     reason: string;
     at: number;
   } | null>(null);
+  const [refusedToken, setRefusedToken] = useState<string | null>(null);
 
   const socket = useRef<WebSocket | null>(null);
   const seq = useRef(0);
@@ -62,6 +68,10 @@ export function useBoard(
   const closedForGood = useRef(false);
   const pendingRef = useRef<Pending[]>([]);
   pendingRef.current = pending;
+  // Read at connect time, so a token claimed mid-session is used on the next
+  // reconnect without forcing one now (the server already updated `you`).
+  const ownerTokenRef = useRef(ownerToken);
+  ownerTokenRef.current = ownerToken;
 
   const actor = useMemo<Actor>(
     () => ({
@@ -87,7 +97,8 @@ export function useBoard(
       if (cancelled) {
         return;
       }
-      const ws = new WebSocket(socketUrl(code, identity, ownerToken));
+      const token = ownerTokenRef.current;
+      const ws = new WebSocket(socketUrl(code, identity, token));
       socket.current = ws;
 
       ws.addEventListener('open', () => {
@@ -119,6 +130,9 @@ export function useBoard(
             seq.current = message.seq;
             setConfirmed(message.board);
             setYou(message.you);
+            if (token && !message.you.isOwner) {
+              setRefusedToken(token);
+            }
             break;
           case 'op': {
             if (
@@ -250,7 +264,7 @@ export function useBoard(
       socket.current?.close(1000, 'leaving');
       socket.current = null;
     };
-  }, [code, identity, ownerToken]);
+  }, [code, identity]);
 
   const confirmedRef = useRef<Board | null>(null);
   confirmedRef.current = confirmed;
@@ -290,7 +304,7 @@ export function useBoard(
     [confirmed, pending, actor],
   );
 
-  return { status, board, you, send, rejection };
+  return { status, board, you, send, rejection, refusedToken };
 }
 
 function replay(board: Board, pending: Pending[], actor: Actor): Board {
