@@ -350,6 +350,16 @@ describe('anonymity on the wire', () => {
       name: 'Han',
       anonymousCardIds: ['secret'],
     });
+    // A signed card to comment on: the anonymous one is sealed until Write
+    // ends (see "sealed anonymous cards").
+    han.send({
+      type: 'addCard',
+      id: 'public',
+      columnId: 'col-1',
+      text: 'Shipped late',
+      anonymous: false,
+    });
+    await han.next('op', han.messages.indexOf(hanEcho) + 1);
 
     // Luke joins afterwards: the snapshot carries no author id.
     const luke = await join(created.code, 'luke', 'Luke');
@@ -371,7 +381,7 @@ describe('anonymity on the wire', () => {
     han.send({
       type: 'addComment',
       id: 'whisper',
-      cardId: 'secret',
+      cardId: 'public',
       text: 'sorry',
       anonymous: true,
     });
@@ -409,7 +419,8 @@ describe('anonymity on the wire', () => {
         expect(m.actor.id).not.toBe('han');
       }
       if (m.type === 'snapshot') {
-        expect(m.board.cards.map((c) => c.authorId)).not.toContain('han');
+        const anonymous = m.board.cards.filter((c) => c.anonymous);
+        expect(anonymous.map((c) => c.authorId)).not.toContain('han');
         expect(m.board.comments.map((c) => c.authorId)).not.toContain('han');
       }
     }
@@ -823,13 +834,16 @@ describe('anonymity across every message', () => {
       text: `Card ${id}`,
       anonymous: true,
     });
-    const ops: Op[] = [
+    const writing: Op[] = [
       card('a'),
       card('b'),
       { type: 'editCard', id: 'a', text: 'Edited' },
       { type: 'moveCard', id: 'a', columnId: 'col-2' },
       { type: 'groupCards', id: 'a', targetId: 'b', groupId: 'grp' },
       { type: 'ungroupCard', id: 'a' },
+    ];
+    // Comments on anonymous cards open once Write ends.
+    const commenting: Op[] = [
       {
         type: 'addComment',
         id: 'c',
@@ -848,15 +862,22 @@ describe('anonymity across every message', () => {
       { type: 'deleteComment', id: 'd' },
       { type: 'deleteCard', id: 'a' },
     ];
-    for (const op of ops) {
-      han.send(op);
-    }
     const echoes = (client: Client) =>
       client.messages.filter((m) => m.type === 'op').length;
+    for (const op of writing) {
+      han.send(op);
+    }
+    await vi.waitFor(() => expect(echoes(han)).toBe(writing.length));
+    leia.send({ type: 'setPhase', phase: 'vote' });
+    await vi.waitFor(() => expect(echoes(han)).toBe(writing.length + 1));
+    for (const op of commenting) {
+      han.send(op);
+    }
+    const total = writing.length + 1 + commenting.length;
     // Han's join rename is the first echo the others see.
     await vi.waitFor(() => {
-      expect(echoes(han)).toBe(ops.length);
-      expect(echoes(luke)).toBe(ops.length + 1);
+      expect(echoes(han)).toBe(total);
+      expect(echoes(luke)).toBe(total + 1);
     });
     expect(han.messages.some((m) => m.type === 'rejected')).toBe(false);
 
@@ -871,7 +892,7 @@ describe('anonymity across every message', () => {
         const raw = JSON.stringify(m);
         expect(raw).not.toContain('"authorId":"han"');
         expect(raw).not.toContain('"authorName":"Han"');
-        if (m.type === 'op' && m.op.type !== 'setName') {
+        if (m.type === 'op' && !['setName', 'setPhase'].includes(m.op.type)) {
           expect(m.actor).toMatchObject({ id: '', name: '' });
         }
       }
@@ -881,5 +902,42 @@ describe('anonymity across every message', () => {
       new Request(`http://holocron.test/api/boards/${created.code}/export.md`),
     );
     expect(await md.text()).not.toContain('Han');
+  });
+});
+
+describe('sealed anonymous cards on the wire', () => {
+  it('refuses the author’s reaction instead of broadcasting their id', async () => {
+    const created = await createBoard();
+    const luke = await join(created.code, 'luke', 'Luke');
+    const han = await join(created.code, 'han', 'Han');
+    await Promise.all([luke.next('snapshot'), han.next('snapshot')]);
+    han.send({
+      type: 'addCard',
+      id: 'secret',
+      columnId: 'col-1',
+      text: 'I broke prod',
+      anonymous: true,
+    });
+    await vi.waitFor(() =>
+      expect(
+        luke.messages.some((m) => m.type === 'op' && m.op.type === 'addCard'),
+      ).toBe(true),
+    );
+    const seen = luke.messages.length;
+
+    const opId = han.send({
+      type: 'toggleReaction',
+      cardId: 'secret',
+      emoji: '👍',
+    });
+    const rejected = await han.next('rejected');
+    expect(rejected.opId).toBe(opId);
+
+    luke.ws.send(JSON.stringify({ type: 'sync' }));
+    const snapshot = await luke.next('snapshot', seen);
+    expect(snapshot.board.reactions).toEqual([]);
+    expect(luke.messages.slice(seen).filter((m) => m.type === 'op')).toEqual(
+      [],
+    );
   });
 });

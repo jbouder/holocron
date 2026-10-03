@@ -106,6 +106,9 @@ function linkableCardId(
   if (isCardHidden(board, card, actor)) {
     fail('You cannot link to a card you cannot read yet');
   }
+  if (isCardSealed(board, card)) {
+    fail('Anonymous cards can be linked when the Write phase ends');
+  }
   return card.id;
 }
 
@@ -173,6 +176,17 @@ export function isCardHidden(board: Board, card: Card, viewer: Viewer) {
     board.phase === 'write' &&
     board.settings.blurDuringWrite &&
     !isCardAuthor(card, viewer)
+  );
+}
+
+/**
+ * An anonymous card still blurred for everyone else. Only its author can
+ * read it, so a reaction, comment or action item link on it could only come
+ * from them and would name them. Nobody does those until Write ends.
+ */
+export function isCardSealed(board: Board, card: Card): boolean {
+  return (
+    board.phase === 'write' && board.settings.blurDuringWrite && card.anonymous
   );
 }
 
@@ -520,6 +534,9 @@ export function reduce(
       if (isCardHidden(board, card, actor)) {
         fail('Reactions open when the Write phase ends');
       }
+      if (isCardSealed(board, card)) {
+        fail('Reactions on anonymous cards open when the Write phase ends');
+      }
       const mine = (r: Board['reactions'][number]) =>
         r.cardId === op.cardId &&
         r.participantId === actor.id &&
@@ -549,6 +566,9 @@ export function reduce(
       const card = findCard(board, op.cardId);
       if (isCardHidden(board, card, actor)) {
         fail('Comments open when the Write phase ends');
+      }
+      if (isCardSealed(board, card)) {
+        fail('Comments on anonymous cards open when the Write phase ends');
       }
       if (op.anonymous && !board.settings.anonymousAllowed) {
         fail('Anonymous comments are off for this board');
