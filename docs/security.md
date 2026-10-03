@@ -153,6 +153,7 @@ platform's WebSocket message limit before `JSON.parse`.
 | Limit | Value | When exceeded |
 | --- | --- | --- |
 | Board creation | 10/min per IP (`CREATE_LIMITER`), optional Turnstile | 429 |
+| Requests by code (meta, export, delete, handoff, socket) | 300/min per IP per Cloudflare location (`PROBE_LIMITER`) | 429; socket closed `1013 limited`, client retries |
 | Ops per socket | 20/s sliding window | `rejected` "Too many changes at once"; sender rolls back |
 | Wrong handoff codes | 5/min per board, 10-minute code | 429; at most ~50 guesses per code against 10⁹ |
 | Seats | 50 per board | close `1008 "This board is full"` |
@@ -164,11 +165,20 @@ for the day ([#71](https://github.com/jbouder/holocron/issues/71)).
 
 ### Code enumeration
 
-32⁶ ≈ 1.07 × 10⁹ codes. With 1,000 live boards, a probe hits once per ~10⁶
-requests. `meta`, `export` and the socket upgrade have no rate limit, so a
-determined prober finds boards within a day, and `export.md` hands over the
-whole board ([#70](https://github.com/jbouder/holocron/issues/70)). The
-daily wipe caps how long any find is useful.
+32⁶ ≈ 1.07 × 10⁹ codes. Every request that names a code (`meta`, `export`,
+`DELETE`, the handoff routes and the socket upgrade) draws on one per-IP
+budget of 300 a minute (`PROBE_LIMITER`), whatever the code and whether a
+board exists; `DELETE` and handoff count because they answer 403 for a live
+board and 404 for an unknown one before any token is checked. Past it, HTTP
+answers 429 and a socket is accepted and closed with `1013 limited`. The
+client waits and retries instead of calling the board missing. At that rate
+one address makes ~430,000 guesses a day; with 1,000 live boards that's
+about one find every two days per address. The binding counts per
+Cloudflare location and is best-effort, so an attacker who reaches several
+locations gets a budget at each, and a botnet gets further still; the daily
+wipe caps how long any find is useful
+([#70](https://github.com/jbouder/holocron/issues/70)). Malformed codes are
+refused before the limiter and before any Durable Object is touched.
 
 ### Client rendering and exports
 
@@ -215,7 +225,6 @@ No action beyond `bun update` when shadcn bumps it.
 
 | # | Severity | Finding |
 | --- | --- | --- |
-| [#70](https://github.com/jbouder/holocron/issues/70) | Medium | Board-code probing isn't rate-limited |
 | [#71](https://github.com/jbouder/holocron/issues/71) | Medium | Unbounded sockets; seats never released |
 | [#72](https://github.com/jbouder/holocron/issues/72) | Low | Action items and the `groupCards` target ignore the facilitation lock |
 | [#73](https://github.com/jbouder/holocron/issues/73) | Low | Markdown export doesn't escape user text |

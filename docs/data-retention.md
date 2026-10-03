@@ -90,7 +90,8 @@ per unexpected server error and nothing per successful request.
 ## Who can see a board
 
 Anyone with the six-character code or the link. Codes are random from a space
-of about one billion, so guessing is impractical, but they are not secrets:
+of about one billion, and lookups are limited to 300 a minute per address,
+so guessing is impractical, but they are not secrets:
 they are read out loud in meetings. Treat a board like a whiteboard in a
 shared room and do not put credentials or personal data on it.
 

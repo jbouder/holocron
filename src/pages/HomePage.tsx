@@ -269,7 +269,9 @@ function JoinPanel() {
       setError(
         err instanceof ApiError && err.status === 404
           ? 'No board with that code. It may have expired.'
-          : 'Could not reach the board. Try again.',
+          : err instanceof ApiError && err.status === 429
+            ? err.message
+            : 'Could not reach the board. Try again.',
       );
       setBusy(false);
     }

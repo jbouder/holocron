@@ -994,3 +994,109 @@ describe('blurred cards on the wire', () => {
     expect(after.board.cards[0].text).toBe('Han private, edited');
   });
 });
+
+describe('code probing', () => {
+  const from = (ip: string, path: string, init: RequestInit = {}) =>
+    call(
+      new Request(`http://holocron.test${path}`, {
+        ...init,
+        headers: { 'cf-connecting-ip': ip, ...init.headers },
+      }),
+    );
+
+  it('limits lookups by code per address, the same for live and unknown codes', async () => {
+    const created = await createBoard();
+    const ip = '198.51.100.7';
+    const statuses: number[] = [];
+    // Live board, unknown code and export all draw on one budget.
+    for (let i = 0; i < 100; i++) {
+      for (const path of [
+        `/api/boards/${created.code}`,
+        '/api/boards/ZZZZZZ',
+        `/api/boards/${created.code}/export.md`,
+      ]) {
+        statuses.push((await from(ip, path)).status);
+      }
+    }
+    expect(statuses.filter((s) => s === 429)).toHaveLength(0);
+    for (const path of [`/api/boards/${created.code}`, '/api/boards/ZZZZZZ']) {
+      const refused = await from(ip, path);
+      expect(refused.status).toBe(429);
+      expect(await refused.json()).toEqual({
+        error: 'Too many board lookups from here. Wait a minute.',
+      });
+    }
+    // Someone else is not affected.
+    expect(
+      (await from('198.51.100.8', `/api/boards/${created.code}`)).status,
+    ).toBe(200);
+  });
+
+  it('counts delete and handoff against the same budget', async () => {
+    const created = await createBoard();
+    const ip = '198.51.100.10';
+    const probes = [
+      ['DELETE', `/api/boards/${created.code}`],
+      ['DELETE', '/api/boards/ZZZZZZ'],
+      ['POST', `/api/boards/${created.code}/handoff`],
+      ['POST', '/api/boards/ZZZZZZ/handoff/redeem'],
+    ] as const;
+    const statuses: number[] = [];
+    for (let i = 0; i < 75; i++) {
+      for (const [method, path] of probes) {
+        statuses.push(
+          (
+            await from(ip, path, {
+              method,
+              headers: {
+                authorization: 'Bearer wrong',
+                'content-type': 'application/json',
+              },
+              body: method === 'POST' ? '{}' : undefined,
+            })
+          ).status,
+        );
+      }
+    }
+    // Under the budget the answers still tell live from unknown apart...
+    expect(statuses).not.toContain(429);
+    expect(new Set(statuses)).toContain(403);
+    expect(new Set(statuses)).toContain(404);
+    // ...which is why the 301st, whatever it is, is refused.
+    for (const [method, path] of probes) {
+      const refused = await from(ip, path, {
+        method,
+        headers: { authorization: 'Bearer wrong' },
+      });
+      expect(refused.status).toBe(429);
+    }
+    // The board is still there.
+    expect(
+      (await from('198.51.100.11', `/api/boards/${created.code}`)).status,
+    ).toBe(200);
+  });
+
+  it('closes an over-limit socket with 1013 instead of failing the upgrade', async () => {
+    const created = await createBoard();
+    const ip = '198.51.100.9';
+    for (let i = 0; i < 300; i++) {
+      await from(ip, '/api/boards/ZZZZZZ');
+    }
+    const response = await from(
+      ip,
+      `/ws/${created.code}?pid=p&secret=s&name=N`,
+      {
+        headers: { Upgrade: 'websocket' },
+      },
+    );
+    expect(response.status).toBe(101);
+    const ws = response.webSocket as WebSocket;
+    const closed = new Promise<CloseEvent>((resolve) =>
+      ws.addEventListener('close', resolve),
+    );
+    ws.accept();
+    const event = await closed;
+    expect(event.code).toBe(1013);
+    expect(event.reason).toBe('limited');
+  });
+});
