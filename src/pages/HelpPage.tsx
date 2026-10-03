@@ -333,6 +333,15 @@ export function HelpPage() {
             the browser that created the board, so open it from the same device.
           </p>
           <p>
+            To pass the board to someone else, the owner picks Hand off
+            ownership from the board menu (the ⋯ button) and reads them the code
+            it shows. The new owner, already on the board in their own browser,
+            picks Claim ownership from the same menu and enters it. The code
+            works once and expires after {LIMITS.handoffTtlMs / 60_000} minutes;
+            creating a new one cancels the old one. Once it is used, the
+            previous owner is an ordinary participant, on every device.
+          </p>
+          <p>
             Deleting a board removes it immediately for everyone on it. It
             cannot be undone.
           </p>

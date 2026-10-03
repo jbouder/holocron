@@ -133,6 +133,21 @@ export const OpSchema = z.discriminatedUnion('type', [
 export type Op = z.infer<typeof OpSchema>;
 export type OpType = Op['type'];
 
+/**
+ * Ops only the board object issues. They go through `reduce()` and out on
+ * the wire like any other op, but `ClientMessageSchema` cannot carry them,
+ * so no socket can send one.
+ */
+export const ServerOpSchema = z.discriminatedUnion('type', [
+  /** Ownership moved by a redeemed handoff code; the token rotated with it. */
+  z.object({ type: z.literal('setOwner'), participantId: id }),
+]);
+
+export type ServerOp = z.infer<typeof ServerOpSchema>;
+
+/** Everything `reduce()` accepts and the server broadcasts. */
+export type BoardOp = Op | ServerOp;
+
 /** Client → server. */
 export const ClientMessageSchema = z.discriminatedUnion('type', [
   z.object({
@@ -176,7 +191,7 @@ export type ServerMessage =
   | {
       type: 'op';
       seq: number;
-      op: Op;
+      op: BoardOp;
       opId: string;
       actor: OpActor;
       /** Server clock when the op was applied; pass to `reduce`. */
@@ -192,6 +207,17 @@ export interface CreateBoardResponse {
   code: string;
   ownerToken: string;
   expiresAt: number;
+}
+
+/** A fresh ownership handoff code, shown once to the owner. */
+export interface HandoffResponse {
+  code: string;
+  expiresAt: number;
+}
+
+/** The new owner token, returned once to the browser that redeemed. */
+export interface RedeemHandoffResponse {
+  ownerToken: string;
 }
 
 /** The Turnstile action for board creation; Siteverify must echo it back. */

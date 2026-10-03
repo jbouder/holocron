@@ -6,7 +6,7 @@ import {
   exportBoard,
 } from '#shared/export';
 import { LIMITS } from '#shared/limits';
-import { type Op, OpSchema } from '#shared/protocol';
+import { ClientMessageSchema, type Op, OpSchema } from '#shared/protocol';
 import {
   anonymousIdsFor,
   cardsInColumn,
@@ -1216,5 +1216,40 @@ describe('export formats', () => {
     expect(exportBoard(board, 'md', 0)).toBe(boardToMarkdown(board, 0));
     expect(exportBoard(board, 'csv', 0)).toBe(actionItemsToCsv(board));
     expect(exportBoard(board, 'txt', 0)).toBe(boardToSummary(board, 0));
+  });
+});
+
+describe('ownership handoff', () => {
+  const seated = () =>
+    apply(fresh(), [[{ type: 'setName', name: 'Han' }, han]]);
+
+  it('moves ownership to a seated participant', () => {
+    const board = reduce(
+      seated(),
+      { type: 'setOwner', participantId: han.id },
+      owner,
+    );
+    expect(board.ownerId).toBe(han.id);
+  });
+
+  it('refuses anyone but the owner', () => {
+    expect(() =>
+      reduce(seated(), { type: 'setOwner', participantId: han.id }, han),
+    ).toThrow(OpError);
+  });
+
+  it('refuses a participant who is not on the board', () => {
+    expect(() =>
+      reduce(fresh(), { type: 'setOwner', participantId: luke.id }, owner),
+    ).toThrow('The new owner has to be on the board');
+  });
+
+  it('cannot be sent by a client', () => {
+    const message = ClientMessageSchema.safeParse({
+      type: 'op',
+      opId: 'x',
+      op: { type: 'setOwner', participantId: 'han' },
+    });
+    expect(message.success).toBe(false);
   });
 });

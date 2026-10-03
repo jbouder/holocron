@@ -23,6 +23,8 @@ anonymous: everyone can see who voted or reacted.
 - a SHA-256 hash of each participant's browser secret (never the secret), so
   nobody else can connect under their id
 - a SHA-256 hash of the owner token (never the token)
+- while an ownership handoff is pending, a SHA-256 hash of the handoff code
+  and its expiry (removed when it is redeemed)
 - the sequence number and the expiry time
 
 **In the participant's browser (`localStorage`, keys prefixed `holocron:`):**
