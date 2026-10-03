@@ -72,9 +72,16 @@ export function ExportDialog({
           {FORMAT_ORDER.map((f) => (
             <TabsContent key={f} value={f}>
               {f === format && (
-                <pre className="scrollbar-thin max-h-64 overflow-auto rounded-md border bg-muted/40 p-3 font-mono text-[0.7rem] leading-relaxed whitespace-pre-wrap">
-                  {text}
-                </pre>
+                <section
+                  // biome-ignore lint/a11y/noNoninteractiveTabindex: a long export scrolls, and a keyboard needs focus to scroll it
+                  tabIndex={0}
+                  aria-label={`${EXPORT_FORMATS[f].label} preview`}
+                  className="scrollbar-thin max-h-64 overflow-auto rounded-md border bg-muted/40 p-3 outline-ring/50 focus-visible:outline-2"
+                >
+                  <pre className="font-mono text-[0.7rem] leading-relaxed whitespace-pre-wrap">
+                    {text}
+                  </pre>
+                </section>
               )}
             </TabsContent>
           ))}

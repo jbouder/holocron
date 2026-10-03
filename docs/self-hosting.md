@@ -67,8 +67,10 @@ WebSockets work on custom domains without extra configuration.
 Three workflows:
 
 - `.github/workflows/ci.yml` runs the `check` job (Biome, `tsc -b`,
-  `vite build`, Vitest) on every pull request and every push to `main`. It
-  never deploys and never touches a secret.
+  `vite build`, Vitest) on every pull request and every push to `main`, then
+  the `e2e` job (Playwright and axe in Chromium against `vite preview`; the
+  HTML report is uploaded as an artifact when it fails). It never deploys
+  and never touches a secret.
 - `.github/workflows/deploy.yml` runs when CI succeeds on a commit pushed to
   `main`, and deploys exactly that commit. Run it by hand (Actions → Deploy →
   Run workflow on `main`) to re-deploy the current `main` without re-running
@@ -95,10 +97,10 @@ deploy. Deploys queue rather than cancel one another.
 Pull requests never deploy to production. PRs from forks never see the
 Cloudflare secrets and get no preview. To block merging until checks pass, add
 a branch protection rule (or ruleset) on `main` under Settings → Branches with
-"Require status checks to pass" and select `check` (from CI). Do not add the
+"Require status checks to pass" and select `check` and `e2e` (from CI). Do not add the
 Deploy or Preview jobs: Deploy runs only after merge, and Preview skips for
 forks and when the secrets are missing, so a PR could wait on them forever.
-GitHub only offers `check` once the job has run at least once.
+GitHub only offers a job once it has run at least once.
 
 ### Pull request previews
 

@@ -1,5 +1,12 @@
 import { PaperPlaneRightIcon } from '@phosphor-icons/react';
-import { type FormEvent, useId, useState } from 'react';
+import {
+  type FocusEvent,
+  type FormEvent,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from 'react';
 import { LIMITS } from '#shared/limits';
 import type { Op } from '#shared/protocol';
 import { Button } from '@/components/ui/button';
@@ -22,6 +29,39 @@ export function Composer({
   const [focused, setFocused] = useState(false);
   const id = useId();
   const trimmed = text.trim();
+  const press = usePointerPress();
+
+  /**
+   * Shrink once focus has left the whole form (the box, the anonymous
+   * checkbox, Post). A press elsewhere takes focus on pointerdown, and
+   * shrinking then would move whatever is under the pointer before the
+   * click lands (a vote, say), so wait for the press to end and its click
+   * to fire. A press inside the form keeps it open even where the browser
+   * does not focus what was pressed (Safari, on buttons and checkboxes).
+   */
+  function blur(event: FocusEvent<HTMLFormElement>) {
+    const form = event.currentTarget;
+    const pressed = press.current;
+    const collapse = () => {
+      if (
+        !form.contains(document.activeElement) &&
+        !(pressed && form.contains(pressed))
+      ) {
+        setFocused(false);
+      }
+    };
+    if (!pressed) {
+      collapse();
+      return;
+    }
+    const release = () => {
+      window.removeEventListener('pointerup', release);
+      window.removeEventListener('pointercancel', release);
+      window.setTimeout(collapse, 0);
+    };
+    window.addEventListener('pointerup', release);
+    window.addEventListener('pointercancel', release);
+  }
 
   function submit(event?: FormEvent) {
     event?.preventDefault();
@@ -41,15 +81,18 @@ export function Composer({
   const expanded = focused || text.length > 0;
 
   return (
-    <form onSubmit={submit} className="grid gap-2">
+    <form
+      onSubmit={submit}
+      onFocus={() => setFocused(true)}
+      onBlur={blur}
+      className="grid gap-2"
+    >
       <Textarea
         aria-label="New card"
         value={text}
         rows={expanded ? 3 : 1}
         maxLength={LIMITS.cardTextMax}
         placeholder="Add a card…"
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' && !e.shiftKey) {
@@ -96,4 +139,27 @@ export function Composer({
       )}
     </form>
   );
+}
+
+/** Where the pointer was pressed, while it is down anywhere on the page. */
+function usePointerPress() {
+  const target = useRef<Element | null>(null);
+  useEffect(() => {
+    const down = (event: PointerEvent) => {
+      target.current = event.target instanceof Element ? event.target : null;
+    };
+    const up = () => {
+      target.current = null;
+    };
+    // Capture, so a press counts before its pointerdown blurs anything.
+    window.addEventListener('pointerdown', down, true);
+    window.addEventListener('pointerup', up, true);
+    window.addEventListener('pointercancel', up, true);
+    return () => {
+      window.removeEventListener('pointerdown', down, true);
+      window.removeEventListener('pointerup', up, true);
+      window.removeEventListener('pointercancel', up, true);
+    };
+  }, []);
+  return target;
 }

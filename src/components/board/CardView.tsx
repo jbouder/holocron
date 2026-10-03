@@ -323,12 +323,8 @@ export function CardView({
       <footer className="mt-2 flex items-center justify-between gap-2">
         <span className="min-w-0 truncate text-xs text-muted-foreground">
           {card.anonymous ? 'Anonymous' : card.authorName}
-          {mine && !card.anonymous && (
-            <span className="opacity-70"> · you</span>
-          )}
-          {mine && card.anonymous && (
-            <span className="opacity-70"> · yours</span>
-          )}
+          {mine && !card.anonymous && <span> · you</span>}
+          {mine && card.anonymous && <span> · yours</span>}
         </span>
 
         <div className="flex shrink-0 items-center gap-0.5">
