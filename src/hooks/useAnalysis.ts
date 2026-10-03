@@ -83,15 +83,19 @@ function rememberChoice(model: AnalysisModel) {
   }
 }
 
+/** A short explanation, with the raw reason kept so a failure can be diagnosed. */
 function describeError(error: unknown): string {
-  const message = error instanceof Error ? error.message : String(error);
-  if (/out of memory|OOM|device lost|buffer size/i.test(message)) {
-    return 'The model does not fit in this device’s GPU memory. Try a smaller one.';
+  const raw = (error instanceof Error ? error.message : String(error)).trim();
+  const detail = raw
+    ? ` (${raw.replace(/^TypeError: /, '').slice(0, 160)})`
+    : '';
+  if (/out of memory|OOM|device lost|buffer size/i.test(raw)) {
+    return `The model does not fit in this device’s GPU memory. Try a smaller one.${detail}`;
   }
-  if (/fetch|network|Failed to load/i.test(message)) {
-    return 'The download failed. Check the connection and try again.';
+  if (/fetch|network|Failed to load|\b[45]\d\d\b/i.test(raw)) {
+    return `The download failed. Check the connection, or try another model.${detail}`;
   }
-  return message || 'Something went wrong.';
+  return raw || 'Something went wrong.';
 }
 
 export function useAnalysis(board: Board, open: boolean): Analysis {

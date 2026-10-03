@@ -10,7 +10,7 @@ import {
   SparkleIcon,
   TrashIcon,
 } from '@phosphor-icons/react';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { LIMITS } from '#shared/limits';
 import type { Op, You } from '#shared/protocol';
 import { votesUsed } from '#shared/reducer';
@@ -74,17 +74,6 @@ export function BoardToolbar({
     board.settings.votesPerPerson - votesUsed(board, you.id);
   const openActions = board.actionItems.filter((a) => !a.done).length;
   const imDone = board.done.includes(you.id);
-
-  // Entering Discuss opens the action items once, on wide screens.
-  const lastPhase = useRef(board.phase);
-  useEffect(() => {
-    if (board.phase === 'discuss' && lastPhase.current !== 'discuss') {
-      if (window.matchMedia('(min-width: 1024px)').matches) {
-        onActionsChange({ open: true, cardId: null });
-      }
-    }
-    lastPhase.current = board.phase;
-  }, [board.phase, onActionsChange]);
 
   return (
     <div className="border-b">
@@ -384,7 +373,7 @@ function EditableTitle({
       // biome-ignore lint/a11y/noAutofocus: the user just asked to edit this
       autoFocus
       aria-label="Board title"
-      className="h-8 min-w-0 rounded-md border bg-background px-2 font-heading text-xl font-semibold tracking-tight outline-ring/50 focus-visible:outline-2"
+      className="h-8 min-w-0 rounded-none border bg-background px-2 font-heading text-xl font-semibold tracking-tight outline-ring/50 focus-visible:outline-2"
       maxLength={LIMITS.titleMax}
       value={draft}
       onChange={(e) => setDraft(e.target.value)}

@@ -345,12 +345,7 @@ export function CardView({
                     weight={myVotes > 0 ? 'fill' : 'regular'}
                     data-icon="inline-start"
                   />
-                  <span
-                    key={votes}
-                    className={cn('count', myVotes > 0 && 'vote-pop')}
-                  >
-                    {votes}
-                  </span>
+                  <span className="count">{votes}</span>
                 </TooltipTrigger>
                 <TooltipContent>
                   {votesLeft > 0

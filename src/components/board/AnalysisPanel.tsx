@@ -354,6 +354,14 @@ function ModelGate({
           <p className="line-clamp-2 text-xs text-muted-foreground">
             {model.text}
           </p>
+          <Button
+            variant="ghost"
+            className="press justify-self-start"
+            onClick={analysis.unload}
+          >
+            <XIcon data-icon="inline-start" />
+            Cancel
+          </Button>
         </div>
       );
     case 'error':
@@ -363,10 +371,15 @@ function ModelGate({
             <WarningIcon className="mt-0.5 shrink-0 text-destructive" />
             {model.message}
           </p>
-          <Button variant="outline" className="press" onClick={analysis.load}>
-            <ArrowClockwiseIcon data-icon="inline-start" />
-            Try again
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" className="press" onClick={analysis.load}>
+              <ArrowClockwiseIcon data-icon="inline-start" />
+              Try again
+            </Button>
+            <Button variant="ghost" className="press" onClick={analysis.unload}>
+              Pick another model
+            </Button>
+          </div>
         </div>
       );
     case 'ready':
