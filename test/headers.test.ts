@@ -24,6 +24,23 @@ function directive(csp: string, name: string): string[] {
   return found?.slice(1) ?? [];
 }
 
+/** The body of every inline `<script>` (no `src`), parsed rather than matched. */
+async function inlineScripts(source: string): Promise<string[]> {
+  const bodies: string[] = [];
+  await new HTMLRewriter()
+    .on('script:not([src])', {
+      element() {
+        bodies.push('');
+      },
+      text(chunk) {
+        bodies[bodies.length - 1] += chunk.text;
+      },
+    })
+    .transform(new Response(source))
+    .text();
+  return bodies;
+}
+
 async function sha256(text: string): Promise<string> {
   const digest = await crypto.subtle.digest(
     'SHA-256',
@@ -45,10 +62,10 @@ describe('static asset headers', () => {
   const csp = header('Content-Security-Policy');
 
   it('allows every inline script in index.html by hash, and nothing else inline', async () => {
-    const inline = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)];
+    const inline = await inlineScripts(html);
     expect(inline.length).toBeGreaterThan(0);
     const scriptSrc = directive(csp, 'script-src');
-    for (const [, body] of inline) {
+    for (const body of inline) {
       expect(scriptSrc).toContain(`'sha256-${await sha256(body)}'`);
     }
     expect(scriptSrc).not.toContain("'unsafe-inline'");
