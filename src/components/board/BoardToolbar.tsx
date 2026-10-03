@@ -153,7 +153,7 @@ export function BoardToolbar({
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuItem onClick={() => setExporting(true)}>
                   <DownloadSimpleIcon />
-                  Export as Markdown
+                  Export
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={openActionsSheet}>
                   <CheckSquareIcon />
