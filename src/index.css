@@ -531,6 +531,18 @@ html[data-vt="theme"]::view-transition-new(root) {
 .presence-avatar[data-online="false"] {
   opacity: 0.35;
 }
+/* The "done" check pops on when someone marks themselves done. */
+.presence-badge {
+  transition:
+    opacity var(--duration-base) var(--ease-emphasized),
+    scale var(--duration-base) var(--ease-emphasized);
+}
+@starting-style {
+  .presence-badge {
+    opacity: 0;
+    scale: 0.4;
+  }
+}
 
 /* ---- Drag and drop ------------------------------------------------------ */
 
