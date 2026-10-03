@@ -284,42 +284,42 @@ function JoinPanel() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={submit} className="flex items-start gap-2">
-          <div className="grid flex-1 gap-1">
-            <Label htmlFor="join-code" className="sr-only">
-              Board code
-            </Label>
-            <Input
-              id="join-code"
-              value={code}
-              onChange={(e) => {
-                setCode(e.target.value.toUpperCase());
-                setError(null);
-              }}
-              placeholder="ABC123"
-              maxLength={CODE_LENGTH + 2}
-              autoCapitalize="characters"
-              autoCorrect="off"
-              spellCheck={false}
-              aria-invalid={error ? true : undefined}
-              aria-describedby={error ? 'join-error' : undefined}
-              className="code-display h-9 text-base"
-            />
-            {error && (
-              <p id="join-error" className="text-xs text-destructive">
-                {error}
-              </p>
-            )}
+        <form onSubmit={submit} className="grid gap-2">
+          <Label htmlFor="join-code">Board code</Label>
+          <div className="flex items-start gap-2">
+            <div className="grid flex-1 gap-1">
+              <Input
+                id="join-code"
+                value={code}
+                onChange={(e) => {
+                  setCode(e.target.value.toUpperCase());
+                  setError(null);
+                }}
+                placeholder="ABC123"
+                maxLength={CODE_LENGTH + 2}
+                autoCapitalize="characters"
+                autoCorrect="off"
+                spellCheck={false}
+                aria-invalid={error ? true : undefined}
+                aria-describedby={error ? 'join-error' : undefined}
+                className="code-display h-9 text-base"
+              />
+              {error && (
+                <p id="join-error" className="text-xs text-destructive">
+                  {error}
+                </p>
+              )}
+            </div>
+            <Button
+              type="submit"
+              size="lg"
+              variant="secondary"
+              disabled={busy}
+              className="press"
+            >
+              {busy ? 'Checking…' : 'Join'}
+            </Button>
           </div>
-          <Button
-            type="submit"
-            size="lg"
-            variant="secondary"
-            disabled={busy}
-            className="press"
-          >
-            {busy ? 'Checking…' : 'Join'}
-          </Button>
         </form>
       </CardContent>
     </Card>
