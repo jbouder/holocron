@@ -66,7 +66,7 @@ export function boardToMarkdown(input: Board, now = Date.now()): string {
   const board = exportable(input);
   const hidden = blursCards(input);
   const lines: string[] = [];
-  lines.push(`# ${board.title}`);
+  lines.push(`# ${md(board.title)}`);
   lines.push('');
   lines.push(
     `Retro board \`${board.code}\` · exported ${new Date(now).toISOString().slice(0, 16).replace('T', ' ')} UTC`,
@@ -76,10 +76,10 @@ export function boardToMarkdown(input: Board, now = Date.now()): string {
   for (const column of [...board.columns].sort(
     (a, b) => a.position - b.position,
   )) {
-    lines.push(`## ${column.title}`);
+    lines.push(`## ${md(column.title)}`);
     lines.push('');
     if (column.prompt) {
-      lines.push(`_${column.prompt}_`);
+      lines.push(`_${md(column.prompt)}_`);
       lines.push('');
     }
     const cards = cardsInColumn(board, column.id);
@@ -120,11 +120,11 @@ export function boardToMarkdown(input: Board, now = Date.now()): string {
     lines.push('_None yet._');
   } else {
     for (const item of board.actionItems) {
-      const owner = item.owner ? ` — ${item.owner}` : '';
-      lines.push(`- [${item.done ? 'x' : ' '}] ${item.text}${owner}`);
+      const owner = item.owner ? ` — ${md(item.owner)}` : '';
+      lines.push(`- [${item.done ? 'x' : ' '}] ${md(item.text)}${owner}`);
       const source = linkedCard(board, item);
       if (source) {
-        lines.push(`  - From: ${oneLine(source.text)}`);
+        lines.push(`  - From: ${md(source.text)}`);
       }
     }
   }
@@ -232,9 +232,9 @@ function formatDate(now: number): string {
 }
 
 function cardLine(board: Board, card: Card, withVotes = true): string {
-  const parts = [oneLine(card.text)];
+  const parts = [md(card.text)];
   if (!card.anonymous) {
-    parts.push(`_(${card.authorName})_`);
+    parts.push(`_(${md(card.authorName)})_`);
   }
   const votes = withVotes ? voteBadge(votesFor(board, card.id)) : '';
   if (votes) {
@@ -252,8 +252,8 @@ function commentLines(board: Board, card: Card, indent: string): string[] {
     .filter((c) => c.cardId === card.id)
     .sort((a, b) => a.createdAt - b.createdAt)
     .map((c) => {
-      const author = c.anonymous ? '' : ` _(${c.authorName})_`;
-      return `${indent}- 💬 ${oneLine(c.text)}${author}`;
+      const author = c.anonymous ? '' : ` _(${md(c.authorName)})_`;
+      return `${indent}- 💬 ${md(c.text)}${author}`;
     });
 }
 
@@ -274,8 +274,24 @@ function reactionBadge(board: Board, cardId: string): string {
   return parts.length > 0 ? `· ${parts.join(' ')}` : '';
 }
 
+/**
+ * User text as literal Markdown: on one line, with every character that
+ * could start a link, an image, inline HTML, emphasis, code, a table cell or
+ * a task box escaped, and a leading list or heading marker defused. Without
+ * this a card could plant a `javascript:` link or raw HTML in whatever wiki
+ * the export is pasted into.
+ */
+function md(text: string): string {
+  return oneLine(text)
+    .replace(/[\\`*_[\]<>#|~]/g, '\\$&')
+    .replace(/^[-+=]/, '\\$&')
+    .replace(/^(\d+)([.)])/, '$1\\$2');
+}
+
 function oneLine(text: string): string {
-  return text.replace(/\s*\n\s*/g, ' ');
+  // A lone \r is a line ending to CommonMark too; the \s* around it
+  // already swallows the \n of a CRLF pair.
+  return text.replace(/\s*[\r\n]\s*/g, ' ');
 }
 
 function voteBadge(count: number): string {
