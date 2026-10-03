@@ -83,6 +83,12 @@ export const OpSchema = z.discriminatedUnion('type', [
     id,
     title: text(LIMITS.columnTitleMax),
   }),
+  z.object({
+    type: z.literal('setColumnPrompt'),
+    id,
+    /** Empty clears the prompt. */
+    prompt: z.string().trim().max(LIMITS.columnPromptMax),
+  }),
   z.object({ type: z.literal('deleteColumn'), id }),
   z.object({
     type: z.literal('addActionItem'),
@@ -120,6 +126,8 @@ export const OpSchema = z.discriminatedUnion('type', [
     title: text(LIMITS.titleMax),
   }),
   z.object({ type: z.literal('setName'), name: text(LIMITS.nameMax) }),
+  /** The actor's own "I'm done writing" signal. */
+  z.object({ type: z.literal('setDone'), done: z.boolean() }),
 ]);
 
 export type Op = z.infer<typeof OpSchema>;

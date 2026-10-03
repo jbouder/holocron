@@ -200,13 +200,13 @@ function CreatePanel({
                       {template.description}
                     </span>
                     <span className="flex flex-wrap gap-1">
-                      {template.columns.map((c) => (
+                      {template.columns.map(({ title }) => (
                         <Badge
-                          key={c}
+                          key={title}
                           variant="outline"
                           className="font-normal"
                         >
-                          {c}
+                          {title}
                         </Badge>
                       ))}
                     </span>

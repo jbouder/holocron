@@ -19,8 +19,10 @@ import {
   reduce,
   upgradeBoard,
   votesFor,
+  votesLeft,
   votesUsed,
 } from '#shared/reducer';
+import { TEMPLATES } from '#shared/templates';
 import type { Actor, Board } from '#shared/types';
 
 const owner: Actor = { id: 'owner', name: 'Leia', isOwner: true };
@@ -305,6 +307,81 @@ describe('facilitation', () => {
     ).toThrow(/at least one/);
   });
 
+  it('sets and clears a column prompt, on one line', () => {
+    let board = reduce(
+      fresh(),
+      {
+        type: 'setColumnPrompt',
+        id: 'col-1',
+        prompt: 'What  should\nwe keep?',
+      },
+      han,
+    );
+    expect(board.columns[0].prompt).toBe('What should we keep?');
+    board = reduce(
+      board,
+      { type: 'setColumnPrompt', id: 'col-1', prompt: '' },
+      han,
+    );
+    expect(board.columns[0].prompt).toBe('');
+    expect(() =>
+      reduce(
+        board,
+        { type: 'setColumnPrompt', id: 'col-x', prompt: 'Hi' },
+        han,
+      ),
+    ).toThrow(/gone/);
+  });
+
+  it('locks column prompts to the owner with facilitation', () => {
+    const locked = reduce(
+      fresh(),
+      { type: 'updateSettings', settings: { facilitatorOnly: true } },
+      owner,
+    );
+    const op: Op = { type: 'setColumnPrompt', id: 'col-1', prompt: 'Kudos' };
+    expect(() => reduce(locked, op, han)).toThrow(/owner/);
+    expect(reduce(locked, op, owner).columns[0].prompt).toBe('Kudos');
+  });
+
+  it('caps the prompt length in the protocol', () => {
+    const ok = OpSchema.safeParse({
+      type: 'setColumnPrompt',
+      id: 'col-1',
+      prompt: 'x'.repeat(LIMITS.columnPromptMax),
+    });
+    const tooLong = OpSchema.safeParse({
+      type: 'setColumnPrompt',
+      id: 'col-1',
+      prompt: 'x'.repeat(LIMITS.columnPromptMax + 1),
+    });
+    const empty = OpSchema.safeParse({
+      type: 'setColumnPrompt',
+      id: 'col-1',
+      prompt: '   ',
+    });
+    expect(ok.success).toBe(true);
+    expect(tooLong.success).toBe(false);
+    expect(empty.success).toBe(true);
+  });
+
+  it('gives new columns an empty prompt and templates their defaults', () => {
+    const board = reduce(
+      fresh(),
+      { type: 'addColumn', id: 'col-x', title: 'Kudos' },
+      owner,
+    );
+    expect(board.columns.at(-1)?.prompt).toBe('');
+    expect(board.columns[0].prompt).toBe('What worked that we should keep?');
+    for (const t of TEMPLATES) {
+      if (t.id === 'blank') continue;
+      for (const c of t.columns) {
+        expect(c.prompt.length).toBeGreaterThan(0);
+        expect(c.prompt.length).toBeLessThanOrEqual(LIMITS.columnPromptMax);
+      }
+    }
+  });
+
   it('renames a participant and their non-anonymous cards', () => {
     const board = apply(fresh(), [
       [add('a', 'signed'), han],
@@ -346,6 +423,18 @@ describe('action items and export', () => {
     expect(md).toContain('  - Pairing worked _(Han)_');
     expect(md).toContain('- [x] Fix the flaky test — Luke');
     expect(md).toContain('_No cards._');
+    expect(md).toContain(
+      '## Went well\n\n_What worked that we should keep?_\n\n- **Group**',
+    );
+  });
+
+  it('leaves out an empty prompt', () => {
+    const board = reduce(
+      fresh(),
+      { type: 'setColumnPrompt', id: 'col-1', prompt: '' },
+      owner,
+    );
+    expect(boardToMarkdown(board, 0)).toContain('## Went well\n\n_No cards._');
   });
 });
 
@@ -627,6 +716,93 @@ describe('upgradeBoard', () => {
       actionItems: [oldItem as Board['actionItems'][number]],
     });
     expect(upgraded.actionItems[0].cardId).toBeNull();
+  });
+
+  it('gives columns stored before prompts existed an empty prompt', () => {
+    const board = fresh();
+    const old = {
+      ...board,
+      columns: board.columns.map(({ prompt: _p, ...c }) => c),
+    };
+    const upgraded = upgradeBoard(old as Board);
+    expect(upgraded.columns.map((c) => c.prompt)).toEqual(['', '', '']);
+  });
+
+  it('fills in done on boards stored before it existed', () => {
+    const { done: _d, ...old } = fresh();
+    expect(upgradeBoard(old as Board).done).toEqual([]);
+  });
+});
+
+describe('done signals', () => {
+  const done: Op = { type: 'setDone', done: true };
+  const undone: Op = { type: 'setDone', done: false };
+
+  it('starts with nobody done', () => {
+    expect(fresh().done).toEqual([]);
+  });
+
+  it('marks and unmarks only the actor', () => {
+    let board = apply(fresh(), [
+      [done, han],
+      [done, luke],
+    ]);
+    expect(board.done).toEqual(['han', 'luke']);
+    board = reduce(board, undone, han);
+    expect(board.done).toEqual(['luke']);
+  });
+
+  it('ignores repeats and undoing when not done', () => {
+    const board = apply(fresh(), [
+      [done, han],
+      [done, han],
+    ]);
+    expect(board.done).toEqual(['han']);
+    expect(reduce(fresh(), undone, han).done).toEqual([]);
+  });
+
+  it('carries no participant id in the op, so nobody can mark someone else', () => {
+    expect(
+      OpSchema.safeParse({ type: 'setDone', done: true, id: 'han' }).data,
+    ).toEqual({ type: 'setDone', done: true });
+  });
+
+  it('only works in Write', () => {
+    const voting = reduce(fresh(), { type: 'setPhase', phase: 'vote' }, owner);
+    expect(() => reduce(voting, done, han)).toThrow(OpError);
+  });
+
+  it('clears when the phase changes, and survives a no-op phase change', () => {
+    const board = reduce(fresh(), done, han);
+    expect(
+      reduce(board, { type: 'setPhase', phase: 'write' }, owner).done,
+    ).toEqual(['han']);
+    const voting = reduce(board, { type: 'setPhase', phase: 'vote' }, owner);
+    expect(voting.done).toEqual([]);
+    const back = reduce(voting, { type: 'setPhase', phase: 'write' }, owner);
+    expect(back.done).toEqual([]);
+  });
+
+  it('ignores a redacted echo', () => {
+    const anon: Actor = { id: '', name: '', isOwner: false };
+    expect(reduce(fresh(), done, anon).done).toEqual([]);
+  });
+
+  it('counts votes left without going negative', () => {
+    let board = reduce(fresh(), { type: 'setPhase', phase: 'vote' }, owner);
+    board = apply(board, [[add('a', 'One'), han]]);
+    expect(votesLeft(board, 'han')).toBe(5);
+    board = apply(board, [
+      [{ type: 'vote', cardId: 'a' }, han],
+      [{ type: 'vote', cardId: 'a' }, han],
+    ]);
+    expect(votesLeft(board, 'han')).toBe(3);
+    board = reduce(
+      board,
+      { type: 'updateSettings', settings: { votesPerPerson: 1 } },
+      owner,
+    );
+    expect(votesLeft(board, 'han')).toBe(0);
   });
 });
 

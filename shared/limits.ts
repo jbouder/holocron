@@ -4,6 +4,7 @@ export const LIMITS = {
   nameMax: 40,
   cardTextMax: 500,
   columnTitleMax: 40,
+  columnPromptMax: 120,
   actionTextMax: 300,
   cardsMax: 500,
   columnsMax: 8,
