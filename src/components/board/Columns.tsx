@@ -212,9 +212,7 @@ function ColumnView({
           </h2>
         )}
         <span className="text-xs text-muted-foreground tabular">
-          <span key={count} className="count">
-            {count}
-          </span>
+          <span className="count">{count}</span>
           <span className="sr-only"> cards</span>
         </span>
         {canFacilitate && (
@@ -337,9 +335,7 @@ function ColumnView({
                 <span>Group · {stack.cards.length} cards</span>
                 {board.phase !== 'write' && (
                   <span className="tabular">
-                    <span key={stack.votes} className="count">
-                      {stack.votes}
-                    </span>{' '}
+                    <span className="count">{stack.votes}</span>{' '}
                     {stack.votes === 1 ? 'vote' : 'votes'}
                   </span>
                 )}

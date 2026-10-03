@@ -4,7 +4,7 @@ import {
   TrashIcon,
   XIcon,
 } from '@phosphor-icons/react';
-import { type FormEvent, useRef, useState } from 'react';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { LIMITS } from '#shared/limits';
 import type { Op, You } from '#shared/protocol';
 import { isCardHidden } from '#shared/reducer';
@@ -91,6 +91,17 @@ export function ActionItemsSheet({
     state.cardId === null
       ? undefined
       : board.cards.find((c) => c.id === state.cardId);
+
+  // Opened from a card: start from its text, which is usually most of the
+  // action already. Read through a ref so a live edit to the card does not
+  // overwrite what the owner has typed since.
+  const linkedText = useRef(linkedCard?.text);
+  linkedText.current = linkedCard?.text;
+  useEffect(() => {
+    if (state.cardId !== null && linkedText.current !== undefined) {
+      setText(linkedText.current.slice(0, LIMITS.actionTextMax));
+    }
+  }, [state.cardId]);
 
   const openItems = board.actionItems.filter((a) => !a.done);
   const doneItems = board.actionItems.filter((a) => a.done);

@@ -283,9 +283,9 @@ export function HelpPage() {
 
         <Section id="actions" title="Action items" index={9}>
           <p>
-            Open the Action items panel from the toolbar (it opens itself when
-            you enter Discuss). Add an item, name an owner, and tick it off when
-            it is done. Action items are part of the export.
+            Open the Action items panel from the toolbar. Add an item, name an
+            owner, and tick it off when it is done. Action items are part of the
+            export.
           </p>
           <p>
             To record where an action came from, choose Add action item in a

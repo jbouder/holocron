@@ -50,11 +50,7 @@ export function CommentToggle({
         weight={count > 0 ? 'fill' : 'regular'}
         data-icon={count > 0 ? 'inline-start' : undefined}
       />
-      {count > 0 && (
-        <span key={count} className="count">
-          {count}
-        </span>
-      )}
+      {count > 0 && <span className="count">{count}</span>}
     </Button>
   );
 }

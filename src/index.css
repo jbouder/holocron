@@ -486,32 +486,10 @@ html[data-vt="theme"]::view-transition-new(root) {
   scale: 0.96;
 }
 
-/* A vote landing: the dot pops on a baked spring. */
-.vote-pop {
-  animation: vote-pop var(--ease-spring-bouncy-duration, 600ms)
-    var(--ease-spring-bouncy, var(--ease-emphasized)) both;
-}
-@keyframes vote-pop {
-  from {
-    scale: 0.5;
-  }
-  to {
-    scale: 1;
-  }
-}
-
-/* Counts pop when they change (React re-keys the span). */
+/* Counts just change. A number ticking over is not an event worth motion;
+   the card holding it stays put (it FLIPs only when Discuss re-sorts). */
 .count {
   display: inline-block;
-  animation: count-pop var(--duration-base) var(--ease-emphasized) both;
-}
-@keyframes count-pop {
-  from {
-    scale: 1.25;
-  }
-  to {
-    scale: 1;
-  }
 }
 
 /* Presence avatars slide in; leaving ones dim rather than vanish. */

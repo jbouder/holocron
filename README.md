@@ -28,7 +28,7 @@ WebSockets, and wipes itself on an alarm.
 - **Phases.** A stepper moves everyone at once. In *Write*, other people's
   cards are blurred so nobody anchors on the first idea. In *Vote*, each
   person spends a budget of dot votes (default 5, several per card allowed).
-  In *Discuss*, columns sort by votes and the action items panel opens.
+  In *Discuss*, columns sort by votes.
 - **Cards.** Enter posts, Shift+Enter breaks a line. Optional per-card
   anonymity: an anonymous card leaves the server with no author id at all,
   so nobody on the board, the owner included, can tell who wrote it. Edit

@@ -89,7 +89,7 @@ export function ReactionChips({
               }
             >
               <span aria-hidden="true">{t.emoji}</span>
-              <span key={t.count} className="count" aria-hidden="true">
+              <span className="count" aria-hidden="true">
                 {t.count}
               </span>
             </TooltipTrigger>
