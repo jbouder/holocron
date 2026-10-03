@@ -1,6 +1,7 @@
 import { TimerIcon, XIcon } from '@phosphor-icons/react';
 import { useEffect, useRef, useState } from 'react';
 import type { Timer } from '#shared/types';
+import { HelpLink } from '@/components/HelpLink';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -130,6 +131,11 @@ export function TimerControl({
               Clear timer
             </Button>
           )}
+          <HelpLink
+            section="timer"
+            label="Timer"
+            className="justify-self-end"
+          />
         </div>
       </PopoverContent>
     </Popover>

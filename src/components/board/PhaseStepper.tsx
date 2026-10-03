@@ -1,4 +1,5 @@
 import { PHASES, type Phase } from '#shared/types';
+import { HelpLink } from '@/components/HelpLink';
 import { cn } from '@/lib/utils';
 
 const LABELS: Record<Phase, { title: string; hint: string }> = {
@@ -61,6 +62,7 @@ export function PhaseStepper({
       >
         {LABELS[phase].hint}
       </p>
+      <HelpLink section="phases" label="Phases" className="-ml-1.5" />
     </div>
   );
 }
