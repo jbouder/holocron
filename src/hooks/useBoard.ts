@@ -21,7 +21,11 @@ export type ConnectionStatus =
   | 'deleted'
   | 'missing'
   /** The board knows our participant id under another browser's secret. */
-  | 'refused';
+  | 'refused'
+  /** Every seat (or socket) on the board is taken. */
+  | 'full'
+  /** This participant already has the board open in too many tabs. */
+  | 'tabs';
 
 interface Pending {
   opId: string;
@@ -238,6 +242,15 @@ export function useBoard(
           // wait it out and never call it missing.
           setStatus('reconnecting');
           reconnectTimer = window.setTimeout(connect, MAX_BACKOFF_MS);
+          return;
+        }
+        if (
+          event.code === 1008 &&
+          (event.reason === 'full' || event.reason === 'tabs')
+        ) {
+          // Nothing changes by retrying on our own; a reload tries again.
+          closedForGood.current = true;
+          setStatus(event.reason);
           return;
         }
         // The upgrade itself failed (404 for a missing board shows up as an

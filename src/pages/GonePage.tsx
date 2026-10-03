@@ -1,3 +1,4 @@
+import { LIMITS } from '#shared/limits';
 import { Button } from '@/components/ui/button';
 import { forgetBoard } from '@/lib/recent-boards';
 import { linkProps } from '@/lib/router';
@@ -19,6 +20,14 @@ const COPY = {
     title: 'This board does not recognise this browser',
     body: 'Someone on it already uses your participant id from another browser. Clear this site’s data to get a fresh identity, then open the board again.',
   },
+  full: {
+    title: 'This board is full',
+    body: `A board seats ${LIMITS.participantsMax} people and everyone on it has joined in. A seat frees up when someone who left without adding anything is replaced. Try again in a bit, or start a new board.`,
+  },
+  tabs: {
+    title: 'This board is open in too many tabs',
+    body: `This browser already has it open in ${LIMITS.socketsPerParticipant} tabs. Close one, then reload this page.`,
+  },
 } as const;
 
 export function GonePage({
@@ -28,7 +37,8 @@ export function GonePage({
   reason: keyof typeof COPY;
   code?: string;
 }) {
-  if (code) {
+  // A full board is still there; keep it in the recent list.
+  if (code && reason !== 'full' && reason !== 'tabs') {
     forgetBoard(code);
   }
   const copy = COPY[reason];

@@ -7,7 +7,13 @@ import { isValidCode, normalizeCode } from '#shared/codes';
  * so navigation animates as a page transition.
  */
 
-export type GoneReason = 'expired' | 'deleted' | 'missing' | 'refused';
+export type GoneReason =
+  | 'expired'
+  | 'deleted'
+  | 'missing'
+  | 'refused'
+  | 'full'
+  | 'tabs';
 
 export type Route =
   | { name: 'home' }

@@ -9,6 +9,7 @@ import { LIMITS } from '#shared/limits';
 import { ClientMessageSchema, type Op, OpSchema } from '#shared/protocol';
 import {
   anonymousIdsFor,
+  canReleaseSeat,
   cardsInColumn,
   createBoard,
   isCardAuthor,
@@ -1568,5 +1569,87 @@ describe('blurred cards stay on the server', () => {
     expect(exportBoard(board, 'csv', 0)).toContain('Follow up');
     const voting = reduce(board, { type: 'setPhase', phase: 'vote' }, owner);
     expect(exportBoard(voting, 'md', 0)).toContain('Han private');
+  });
+});
+
+describe('releasing idle seats', () => {
+  const idle: Actor = { id: 'idle', name: 'Idle', isOwner: false };
+  const seated = () =>
+    apply(fresh(), [
+      [{ type: 'setName', name: 'Idle' }, idle],
+      [{ type: 'setName', name: 'Han' }, han],
+    ]);
+  const release = (participantId: string): Op =>
+    ({ type: 'releaseSeat', participantId }) as unknown as Op;
+  const system: Actor = { id: '', name: '', isOwner: false };
+
+  it('frees the seat of someone who left nothing public behind', () => {
+    const board = reduce(seated(), release('idle'), system);
+    expect(board.participants.map((p) => p.id)).toEqual(['owner', 'han']);
+  });
+
+  it('keeps the owner and anyone with a signed card, comment, vote, reaction or done', () => {
+    const cases: Array<[string, Board]> = [
+      ['owner', seated()],
+      ['card', apply(seated(), [[add('c', 'Mine'), idle]])],
+      [
+        'comment',
+        apply(seated(), [
+          [add('c', 'Han'), han],
+          [{ type: 'setPhase', phase: 'vote' }, owner],
+          [
+            {
+              type: 'addComment',
+              id: 'k',
+              cardId: 'c',
+              text: 'Yes',
+              anonymous: false,
+            },
+            idle,
+          ],
+        ]),
+      ],
+      [
+        'vote',
+        apply(seated(), [
+          [add('c', 'Han'), han],
+          [{ type: 'setPhase', phase: 'vote' }, owner],
+          [{ type: 'vote', cardId: 'c' }, idle],
+        ]),
+      ],
+      [
+        'reaction',
+        apply(seated(), [
+          [add('c', 'Han'), han],
+          [{ type: 'setPhase', phase: 'vote' }, owner],
+          [{ type: 'toggleReaction', cardId: 'c', emoji: '👍' }, idle],
+        ]),
+      ],
+      ['done', apply(seated(), [[{ type: 'setDone', done: true }, idle]])],
+    ];
+    for (const [what, board] of cases) {
+      const who = what === 'owner' ? 'owner' : 'idle';
+      expect(canReleaseSeat(board, who), what).toBe(false);
+      expect(() => reduce(board, release(who), system), what).toThrow(
+        'That seat is in use',
+      );
+    }
+  });
+
+  it('ignores anonymous items, which stay their author’s', () => {
+    const board = apply(seated(), [[add('a', 'Secret', true), idle]]);
+    expect(canReleaseSeat(board, 'idle')).toBe(true);
+    const released = reduce(board, release('idle'), system);
+    expect(isCardAuthor(released.cards[0], idle)).toBe(true);
+  });
+
+  it('cannot be sent by a client', () => {
+    expect(
+      ClientMessageSchema.safeParse({
+        type: 'op',
+        opId: 'x',
+        op: { type: 'releaseSeat', participantId: 'han' },
+      }).success,
+    ).toBe(false);
   });
 });
