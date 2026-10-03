@@ -30,6 +30,7 @@ function create(bindings: Bindings, extra: Record<string, unknown> = {}) {
       },
       body: JSON.stringify({
         participantId: 'owner-1',
+        secret: 'secret-of-owner-1',
         name: 'Leia',
         ...extra,
       }),
@@ -166,6 +167,7 @@ describe('Turnstile enabled', () => {
           headers: { 'cf-connecting-ip': '198.51.100.7' },
           body: JSON.stringify({
             participantId: 'p',
+            secret: 's',
             name: 'Han',
             turnstileToken: 't',
           }),

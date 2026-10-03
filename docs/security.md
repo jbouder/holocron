@@ -62,9 +62,9 @@ from the socket attachment, never from the op. Rules:
 - Never sent to a client after issue: snapshots carry `you.isOwner`, not the
   token or hash.
 - Rotated by a handoff; live sockets of the old owner lose ownership at once.
-- Compared as SHA-256 hex with `!==`. Timing can only leak the prefix of the
-  *hash*, which doesn't help anyone find the token. A constant-time compare is
-  still worth having ([#74](https://github.com/jbouder/holocron/issues/74)).
+- Compared as SHA-256 hex with `crypto.subtle.timingSafeEqual` (`sameHash`
+  in `worker/board.ts`), like the participant secret and the handoff code
+  ([#74](https://github.com/jbouder/holocron/issues/74)).
 
 ### Identity binding
 
@@ -74,10 +74,9 @@ from the socket attachment, never from the op. Rules:
   `1008 identity` (test: "binds an id to the first secret…").
 - The only other path that takes a participant id is the handoff redeem, and
   it checks the same binding (`reason: 'stranger'`).
-- `POST /api/boards` takes the creator's id **without** a secret, so the
-  owner's id is unbound until their first socket. Someone who reads `ownerId`
-  from a snapshot first could claim it. The window is short, but it
-  shouldn't exist ([#74](https://github.com/jbouder/holocron/issues/74)).
+- `POST /api/boards` takes the creator's secret with their id and binds it
+  in `create()`, so the owner's id is never up for grabs before their first
+  socket ([#74](https://github.com/jbouder/holocron/issues/74)).
 - Display names aren't unique or verified. Anyone can call themselves "Leia".
 
 ### Anonymity
@@ -117,10 +116,10 @@ snapshot. Exports, which need no identity, leave cards out until Write ends
 The DO writes four things: the `board` SQL table, the `participantSecrets`
 and `handoff` KV keys, and the alarm. `wipe()` calls `deleteAlarm()` then
 `deleteAll()`, which removes all of them, and resets every in-memory field.
-`expireIfDue()` runs first in `create`, `meta`, `destroy`, `startHandoff`,
-`redeemHandoff`, `export`, `fetch` and `webSocketMessage`. `webSocketClose`
-and `webSocketError` skip it. They only broadcast presence, but should follow
-the rule ([#74](https://github.com/jbouder/holocron/issues/74)). A probe of an
+`expireIfDue()` runs first in every entry point: `create`, `meta`,
+`destroy`, `startHandoff`, `redeemHandoff`, `export`, `fetch`,
+`webSocketMessage`, `webSocketClose` and `webSocketError` (the last two
+since [#74](https://github.com/jbouder/holocron/issues/74)). A probe of an
 unknown code leaves no storage behind (test: "storage hygiene").
 
 ### Input validation
@@ -233,8 +232,8 @@ refused before the limiter and before any Durable Object is touched.
   ambient credentials (no cookies). Every credential is in the URL, which a
   cross-site page can only build if it already has the secrets.
 - Credentials on the socket URL end up in Workers Logs when they're enabled
-  (also documented in `docs/data-retention.md`;
-  [#74](https://github.com/jbouder/holocron/issues/74)).
+  (also documented in `docs/data-retention.md`). Moving them into a first
+  message is [#84](https://github.com/jbouder/holocron/issues/84).
 
 ### Dependencies
 
@@ -249,7 +248,7 @@ No action beyond `bun update` when shadcn bumps it.
 | # | Severity | Finding |
 | --- | --- | --- |
 | [#80](https://github.com/jbouder/holocron/issues/80) | Low | Owner can't remove a participant who holds a seat online |
-| [#74](https://github.com/jbouder/holocron/issues/74) | Low | Owner id unbound at create; non-constant-time compares; tokens in socket URL; two handlers skip `expireIfDue()` |
+| [#84](https://github.com/jbouder/holocron/issues/84) | Low | Participant secret and owner token travel on the socket URL |
 
 When one of these is fixed, update the section above and drop it from the
 table.

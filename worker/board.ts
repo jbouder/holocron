@@ -52,6 +52,8 @@ export interface CreateInput {
   title: string;
   templateId: string;
   ownerId: string;
+  /** The creator's browser secret; only its hash is kept. */
+  ownerSecret: string;
   ownerName: string;
   expiresAt: number;
 }
@@ -208,8 +210,15 @@ export class BoardObject extends DurableObject<Bindings> {
       return null;
     }
     const token = randomToken();
+    const [ownerHash, secretHash] = await Promise.all([
+      sha256(token),
+      sha256(input.ownerSecret),
+    ]);
+    if (this.board) {
+      return null; // another create won while we hashed
+    }
     this.ensureTable();
-    this.ownerHash = await sha256(token);
+    this.ownerHash = ownerHash;
     this.board = createBoard({
       code: input.code,
       title: input.title,
@@ -220,8 +229,11 @@ export class BoardObject extends DurableObject<Bindings> {
       expiresAt: input.expiresAt,
     });
     this.seq = 0;
-    this.secrets = {};
+    // Bound now, not on the first socket: until then anyone who read the
+    // owner's id could claim it.
+    this.secrets = { [input.ownerId]: secretHash };
     this.persist();
+    await this.ctx.storage.put(SECRETS_KEY, this.secrets);
     await this.ctx.storage.setAlarm(input.expiresAt);
     return token;
   }
@@ -245,7 +257,7 @@ export class BoardObject extends DurableObject<Bindings> {
     if (!this.board || this.ownerHash === null) {
       return 'missing';
     }
-    if ((await sha256(token)) !== this.ownerHash) {
+    if (!sameHash(await sha256(token), this.ownerHash)) {
       return 'forbidden';
     }
     await this.wipe('deleted');
@@ -264,7 +276,7 @@ export class BoardObject extends DurableObject<Bindings> {
     if (!this.board || this.ownerHash === null) {
       return 'missing';
     }
-    if ((await sha256(token)) !== this.ownerHash) {
+    if (!sameHash(await sha256(token), this.ownerHash)) {
       return 'forbidden';
     }
     const code = generateCode();
@@ -308,7 +320,7 @@ export class BoardObject extends DurableObject<Bindings> {
     // and bound to this browser's secret.
     const id = input.participantId;
     if (
-      this.secrets[id] !== secretHash ||
+      !sameHash(secretHash, this.secrets[id]) ||
       !this.board.participants.some((p) => p.id === id)
     ) {
       return { ok: false, reason: 'stranger' };
@@ -317,7 +329,11 @@ export class BoardObject extends DurableObject<Bindings> {
       return { ok: false, reason: 'owner' };
     }
     const handoff = this.handoff;
-    if (!handoff || handoff.expiresAt <= now || handoff.hash !== codeHash) {
+    if (
+      !handoff ||
+      handoff.expiresAt <= now ||
+      !sameHash(codeHash, handoff.hash)
+    ) {
       this.handoffMisses.push(now);
       return { ok: false, reason: 'invalid' };
     }
@@ -381,9 +397,7 @@ export class BoardObject extends DurableObject<Bindings> {
       });
     }
     const isOwner =
-      token !== null &&
-      this.ownerHash !== null &&
-      (await sha256(token)) === this.ownerHash;
+      token !== null && sameHash(await sha256(token), this.ownerHash);
 
     // Counted before this socket joins them. The board cap never shuts the
     // owner out: a crowd of tabs must not stop them running (or ending) the
@@ -409,7 +423,7 @@ export class BoardObject extends DurableObject<Bindings> {
     // close reason is what the client keys on; it never retries this.
     const secretHash = await sha256(secret);
     const bound = this.secrets[id];
-    if (bound !== undefined && bound !== secretHash) {
+    if (bound !== undefined && !sameHash(secretHash, bound)) {
       server.close(1008, 'identity');
       return new Response(null, { status: 101, webSocket: client });
     }
@@ -543,6 +557,7 @@ export class BoardObject extends DurableObject<Bindings> {
   }
 
   async webSocketClose(ws: WebSocket, code: number, reason: string) {
+    await this.expireIfDue();
     try {
       ws.close(code, reason);
     } catch {
@@ -552,6 +567,7 @@ export class BoardObject extends DurableObject<Bindings> {
   }
 
   async webSocketError(ws: WebSocket) {
+    await this.expireIfDue();
     try {
       ws.close(1011, 'error');
     } catch {
@@ -771,6 +787,19 @@ function randomToken(): string {
   const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Equality for two hex digests from `sha256`, in constant time. Timing
+ * could only ever leak the prefix of a hash, not of the secret behind it,
+ * but this keeps the question from coming up.
+ */
+function sameHash(a: string, b: string | null | undefined): boolean {
+  if (b == null || a.length !== b.length) {
+    return false;
+  }
+  const encoder = new TextEncoder();
+  return crypto.subtle.timingSafeEqual(encoder.encode(a), encoder.encode(b));
 }
 
 async function sha256(input: string): Promise<string> {

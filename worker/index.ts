@@ -25,6 +25,8 @@ const CreateSchema = z.object({
   title: z.string().trim().max(LIMITS.titleMax).default(''),
   templateId: z.string().max(40).default(DEFAULT_TEMPLATE_ID),
   participantId: z.string().min(1).max(64),
+  /** The creator's browser secret, bound to their id from the start. */
+  secret: z.string().min(1).max(128),
   name: z.string().trim().min(1).max(LIMITS.nameMax),
   /** Only checked when Turnstile is configured (see ./turnstile.ts). */
   turnstileToken: z.string().optional(),
@@ -249,6 +251,7 @@ async function createBoard(request: Request, env: Bindings): Promise<Response> {
       title: input.title,
       templateId: input.templateId,
       ownerId: input.participantId,
+      ownerSecret: input.secret,
       ownerName: input.name,
       expiresAt,
     });

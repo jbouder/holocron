@@ -39,6 +39,8 @@ export function createBoard(input: {
   title: string;
   templateId: string;
   participantId: string;
+  /** This browser's secret, so the board binds our id from the start. */
+  secret: string;
   name: string;
   /** Only sent when the deployment requires a Turnstile check. */
   turnstileToken?: string;

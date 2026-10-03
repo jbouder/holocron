@@ -96,6 +96,7 @@ function CreatePanel({
         title: title.trim(),
         templateId,
         participantId: identity.id,
+        secret: identity.secret,
         name: trimmed,
         turnstileToken: humanToken ?? undefined,
       });

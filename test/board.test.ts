@@ -42,6 +42,7 @@ async function createBoard(overrides: Record<string, unknown> = {}) {
         title: 'Sprint 42',
         templateId: 'classic',
         participantId: 'owner-1',
+        secret: 'secret-of-owner-1',
         name: 'Leia',
         ...overrides,
       }),
@@ -216,6 +217,7 @@ describe('the daily wipe', () => {
       title: 'Again',
       templateId: 'blank',
       ownerId: 'o2',
+      ownerSecret: 'secret',
       ownerName: 'Lando',
       expiresAt: Date.now() + 60_000,
     });
@@ -244,6 +246,7 @@ describe('the daily wipe', () => {
       title: 'Clash',
       templateId: 'blank',
       ownerId: 'x',
+      ownerSecret: 'secret',
       ownerName: 'X',
       expiresAt: Date.now() + 60_000,
     });
@@ -1311,5 +1314,65 @@ describe('grouping anonymous cards on a locked board', () => {
       (board as Board).cards.map((c) => [c.id, c.groupId]),
     );
     expect(groups).toEqual({ a: 'g3', b: null, s: 'g3' });
+  });
+});
+
+describe('credential hardening', () => {
+  it('binds the creator’s id at creation, before their first socket', async () => {
+    const created = await createBoard();
+    // Someone who learned the owner's id joins as them first.
+    const closed = new Promise<CloseEvent>((resolve) => {
+      join(created.code, 'owner-1', 'Leia', undefined, 'not-leias').then((c) =>
+        c.ws.addEventListener('close', resolve),
+      );
+    });
+    const event = await closed;
+    expect(event.code).toBe(1008);
+    expect(event.reason).toBe('identity');
+    // The real owner still gets in, as the owner.
+    const leia = await join(
+      created.code,
+      'owner-1',
+      'Leia',
+      created.ownerToken,
+    );
+    expect((await leia.next('snapshot')).you.isOwner).toBe(true);
+  });
+
+  it('needs the creator’s secret to create a board', async () => {
+    const response = await call(
+      new Request('http://holocron.test/api/boards', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'cf-connecting-ip': '203.0.113.200',
+        },
+        body: JSON.stringify({ participantId: 'p', name: 'P' }),
+      }),
+    );
+    expect(response.status).toBe(400);
+  });
+
+  it('wipes an overdue board when a socket closes, before saying who left', async () => {
+    const created = await createBoard();
+    const han = await join(created.code, 'han', 'Han');
+    const luke = await join(created.code, 'luke', 'Luke');
+    await Promise.all([han.next('snapshot'), luke.next('snapshot')]);
+    const stub = stubFor(created.code);
+    await runInDurableObject(stub, async (instance) => {
+      const self = instance as unknown as {
+        board: { expiresAt: number } | null;
+      };
+      if (self.board) {
+        self.board.expiresAt = Date.now() - 1;
+      }
+    });
+    const seen = luke.messages.length;
+    han.ws.close(1000, 'leaving');
+    await luke.next('expired', seen);
+    expect(luke.messages.slice(seen).some((m) => m.type === 'presence')).toBe(
+      false,
+    );
+    expect(await stub.meta()).toBeNull();
   });
 });
