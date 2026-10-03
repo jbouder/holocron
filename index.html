@@ -9,11 +9,13 @@
       // Mirrors apply() in src/providers/ThemeProvider.tsx; the ids come
       // from src/lib/themes.ts.
       (() => {
-        const darkBased = ['dark', 'dagobah', 'synthwave'];
-        const palettes = ['dagobah', 'tatooine', 'synthwave'];
+        const darkBased = ['dark', 'dagobah', 'kamino'];
+        const palettes = ['dagobah', 'tatooine', 'kamino'];
         let saved = null;
         try {
           saved = localStorage.getItem('holocron:theme');
+          // Retired ids map to their replacements (LEGACY_THEMES in themes.ts).
+          if (saved === 'synthwave') saved = 'kamino';
         } catch {
           // Blocked storage: follow the OS.
         }

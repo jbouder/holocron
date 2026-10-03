@@ -71,7 +71,7 @@ WebSockets, and wipes itself on an alarm.
   the board early. Ownership is a token in the creating browser; the server
   stores only its hash.
 - **Themes**: System, Light, Dark (side), plus Dagobah, Tatooine and
-  Synthwave, and motion and timer-sound switches in Preferences.
+  Kamino, and motion and timer-sound switches in Preferences.
   `prefers-reduced-motion` is a hard override.
 - **In-app help** at `/help` covers everything above for participants.
 
