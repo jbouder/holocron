@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { boardToMarkdown } from '#shared/export';
 import type { Board } from '#shared/types';
 import { CopyButton } from '@/components/board/ShareDialog';
+import { HelpLink } from '@/components/HelpLink';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -61,6 +62,12 @@ export function ExportDialog({
             Download .md
           </Button>
         </div>
+        {/* Last in the DOM so the dialog's initial focus skips it. */}
+        <HelpLink
+          section="export"
+          label="Export"
+          className="absolute top-2 right-10 size-7"
+        />
       </DialogContent>
     </Dialog>
   );

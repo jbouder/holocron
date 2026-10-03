@@ -1,9 +1,14 @@
+import { ArrowUpIcon, LinkSimpleIcon } from '@phosphor-icons/react';
+import { useEffect, useRef, useState } from 'react';
 import { LIMITS } from '#shared/limits';
 import { TEMPLATES } from '#shared/templates';
 import { DEFAULT_SETTINGS, REACTIONS } from '#shared/types';
 import { Badge } from '@/components/ui/badge';
-import { linkProps } from '@/lib/router';
+import { linkProps, navigate, useRoute } from '@/lib/router';
+import { cn } from '@/lib/utils';
 import { useConfig } from '@/pages/HomePage';
+import { useMotion } from '@/providers/MotionProvider';
+import { useToast } from '@/providers/ToastProvider';
 
 /**
  * How to use Holocron. Running your own copy is documented in the repository,
@@ -13,10 +18,75 @@ export function HelpPage() {
   const config = useConfig();
   const resetLabel = config?.resetLabel ?? '6:00 AM ET';
 
+  const route = useRoute();
+  const { active: motion } = useMotion();
+  // Read at jump time; flipping the switch is not a reason to jump again.
+  const motionRef = useRef(motion);
+  motionRef.current = motion;
+  const current = useCurrentSection();
+  const scrolled = useScrolledPast(600);
+
+  // Jump to the section in the URL: on load, from a `?` link on the board,
+  // from the table of contents, and on Back/Forward. Focus follows the jump
+  // so keyboard and screen-reader users land where they were sent.
+  const section = route.name === 'help' ? route.section : undefined;
+  // The route the page mounted with; every navigation after it is a new object.
+  const initialRoute = useRef(route);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `route` is a new object on every navigation, even to the same section, and each one should jump.
+  useEffect(() => {
+    const first = route === initialRoute.current;
+    if (!section && first) {
+      return;
+    }
+    const jump = () => {
+      const target = document.getElementById(
+        section ? `${section}-title` : 'help-title',
+      );
+      if (!target) {
+        return;
+      }
+      // A direct load has nothing to animate from.
+      const behavior: ScrollBehavior =
+        motionRef.current && !first ? 'smooth' : 'instant';
+      if (section) {
+        target.closest('section')?.scrollIntoView({ behavior, block: 'start' });
+      } else {
+        window.scrollTo({ top: 0, behavior });
+      }
+      target.focus({ preventScroll: true });
+    };
+    if (!first) {
+      jump();
+      return;
+    }
+    // On a direct load, web fonts arriving after the jump would reflow the
+    // page above the target and push it under the header. Wait for them.
+    let cancelled = false;
+    document.fonts.ready.then(() => {
+      if (!cancelled) {
+        requestAnimationFrame(jump);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [route]);
+
   return (
-    <div className="mx-auto w-full max-w-3xl flex-1 px-4 py-10 sm:px-6">
-      <div className="stagger-in" style={{ '--i': 0 } as React.CSSProperties}>
-        <h1 className="font-heading text-3xl font-semibold tracking-tight">
+    <div className="mx-auto w-full max-w-6xl flex-1 px-4 py-10 sm:px-6 lg:grid lg:grid-cols-[13rem_minmax(0,48rem)] lg:content-start lg:gap-x-12">
+      <aside className="hidden lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:block">
+        <TableOfContents current={current} />
+      </aside>
+
+      <div
+        className="stagger-in lg:col-start-2"
+        style={{ '--i': 0 } as React.CSSProperties}
+      >
+        <h1
+          id="help-title"
+          tabIndex={-1}
+          className="font-heading text-3xl font-semibold tracking-tight outline-none"
+        >
           How Holocron works
         </h1>
         <p className="mt-2 text-muted-foreground">
@@ -26,23 +96,11 @@ export function HelpPage() {
         </p>
       </div>
 
-      <nav
-        aria-label="On this page"
-        className="stagger-in mt-6 flex flex-wrap gap-2"
-        style={{ '--i': 1 } as React.CSSProperties}
-      >
-        {SECTIONS.map((s) => (
-          <a
-            key={s.id}
-            href={`#${s.id}`}
-            className="rounded-md border px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
-          >
-            {s.title}
-          </a>
-        ))}
-      </nav>
+      <JumpTo current={current} />
 
-      <div className="mt-10 grid gap-10">
+      <div className="mt-10 grid gap-10 lg:col-start-2">
+        <GroupHeading id="getting-started" first />
+
         <Section id="boards" title="Boards and codes" index={2}>
           <p>
             Anyone can create a board from the{' '}
@@ -123,6 +181,8 @@ export function HelpPage() {
             themselves in Settings ("Only I can facilitate").
           </p>
         </Section>
+
+        <GroupHeading id="running" />
 
         <Section id="cards" title="Cards" index={5}>
           <p>
@@ -220,6 +280,8 @@ export function HelpPage() {
           </p>
         </Section>
 
+        <GroupHeading id="owner" />
+
         <Section id="ownership" title="Ownership and deleting" index={11}>
           <p>
             Whoever creates a board owns it. The owner can change settings (vote
@@ -232,6 +294,8 @@ export function HelpPage() {
             cannot be undone.
           </p>
         </Section>
+
+        <GroupHeading id="data-and-settings" />
 
         <Section id="data" title="Data and retention" index={12}>
           <p>
@@ -307,25 +371,215 @@ export function HelpPage() {
           </p>
         </Section>
       </div>
+
+      <BackToTop visible={scrolled} />
     </div>
   );
 }
 
-const SECTIONS = [
-  { id: 'boards', title: 'Boards and codes' },
-  { id: 'name', title: 'Your name' },
-  { id: 'phases', title: 'Phases' },
-  { id: 'cards', title: 'Cards' },
-  { id: 'reactions', title: 'Reactions and comments' },
-  { id: 'grouping', title: 'Grouping' },
-  { id: 'timer', title: 'Timer' },
-  { id: 'actions', title: 'Action items' },
-  { id: 'export', title: 'Export' },
-  { id: 'ownership', title: 'Ownership' },
-  { id: 'data', title: 'Data and retention' },
-  { id: 'shortcuts', title: 'Keyboard' },
-  { id: 'preferences', title: 'Preferences' },
+/**
+ * The table of contents, grouped by what you are trying to do. Section ids
+ * are the URL fragments (`/help#timer`) the board's `?` links point at, so
+ * keep them stable. The page renders the sections in this order.
+ */
+const GROUPS = [
+  {
+    id: 'getting-started',
+    title: 'Getting started',
+    sections: [
+      { id: 'boards', title: 'Boards and codes' },
+      { id: 'name', title: 'Your name' },
+      { id: 'phases', title: 'Phases' },
+    ],
+  },
+  {
+    id: 'running',
+    title: 'Running a retro',
+    sections: [
+      { id: 'cards', title: 'Cards' },
+      { id: 'reactions', title: 'Reactions and comments' },
+      { id: 'grouping', title: 'Grouping' },
+      { id: 'timer', title: 'Timer' },
+      { id: 'actions', title: 'Action items' },
+      { id: 'export', title: 'Export' },
+    ],
+  },
+  {
+    id: 'owner',
+    title: 'For the board owner',
+    sections: [{ id: 'ownership', title: 'Ownership' }],
+  },
+  {
+    id: 'data-and-settings',
+    title: 'Your data and settings',
+    sections: [
+      { id: 'data', title: 'Data and retention' },
+      { id: 'shortcuts', title: 'Keyboard' },
+      { id: 'preferences', title: 'Preferences' },
+    ],
+  },
 ];
+
+const SECTION_IDS = GROUPS.flatMap((g) => g.sections.map((s) => s.id));
+
+/** The section nearest the top of the viewport, for the TOC highlight. */
+function useCurrentSection(): string {
+  const [current, setCurrent] = useState(SECTION_IDS[0]);
+  useEffect(() => {
+    const visible = new Set<string>();
+    const pick = () => {
+      // The last sections are short and can never reach the band at the top,
+      // so at the very bottom the last one wins.
+      const atEnd =
+        window.innerHeight + window.scrollY >=
+        document.documentElement.scrollHeight - 2;
+      const next = atEnd
+        ? SECTION_IDS[SECTION_IDS.length - 1]
+        : SECTION_IDS.find((id) => visible.has(id));
+      if (next) {
+        setCurrent(next);
+      }
+    };
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            visible.add(entry.target.id);
+          } else {
+            visible.delete(entry.target.id);
+          }
+        }
+        pick();
+      },
+      // A band just under the sticky header; the first section in it is
+      // the current one.
+      { rootMargin: '-96px 0px -60% 0px' },
+    );
+    for (const id of SECTION_IDS) {
+      const el = document.getElementById(id);
+      if (el) {
+        observer.observe(el);
+      }
+    }
+    window.addEventListener('scroll', pick, { passive: true });
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('scroll', pick);
+    };
+  }, []);
+  return current;
+}
+
+function useScrolledPast(px: number): boolean {
+  const [past, setPast] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setPast(window.scrollY > px);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [px]);
+  return past;
+}
+
+/** Wide screens: a sticky sidebar that follows the reader down the page. */
+function TableOfContents({ current }: { current: string }) {
+  return (
+    <nav
+      aria-label="On this page"
+      className="stagger-in sticky top-24 max-h-[calc(100dvh-7rem)] overflow-y-auto pb-4 text-sm"
+      style={{ '--i': 1 } as React.CSSProperties}
+    >
+      <p className="mb-4 text-xs font-medium text-foreground">On this page</p>
+      <div className="grid gap-5">
+        {GROUPS.map((group) => (
+          <div key={group.id}>
+            <p className="mb-1.5 text-xs text-muted-foreground">
+              {group.title}
+            </p>
+            <ul className="grid border-l">
+              {group.sections.map((s) => (
+                <li key={s.id}>
+                  <a
+                    {...linkProps({ name: 'help', section: s.id })}
+                    aria-current={current === s.id ? 'location' : undefined}
+                    className={cn(
+                      '-ml-px block border-l border-transparent py-1 pl-3 text-muted-foreground outline-ring/50 transition-colors hover:text-foreground focus-visible:outline-2',
+                      current === s.id &&
+                        'border-foreground font-medium text-foreground',
+                    )}
+                  >
+                    {s.title}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </nav>
+  );
+}
+
+/** Narrow screens: a sticky picker in place of the sidebar. */
+function JumpTo({ current }: { current: string }) {
+  return (
+    <nav
+      aria-label="On this page"
+      className="sticky top-14 z-20 -mx-4 mt-6 border-b bg-background/85 px-4 py-2 backdrop-blur supports-backdrop-filter:bg-background/70 sm:-mx-6 sm:px-6 lg:hidden"
+    >
+      <label className="flex items-center gap-2 text-xs text-muted-foreground">
+        <span className="shrink-0">Jump to</span>
+        <select
+          value={current}
+          onChange={(event) =>
+            navigate({ name: 'help', section: event.target.value })
+          }
+          className="h-8 min-w-0 flex-1 rounded-md border bg-background px-2 text-sm text-foreground outline-ring/50 focus-visible:outline-2"
+        >
+          {GROUPS.map((group) => (
+            <optgroup key={group.id} label={group.title}>
+              {group.sections.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.title}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+      </label>
+    </nav>
+  );
+}
+
+function GroupHeading({ id, first }: { id: string; first?: boolean }) {
+  const group = GROUPS.find((g) => g.id === id);
+  return (
+    <h2
+      id={`group-${id}`}
+      className={cn(
+        '-mb-4 border-b pb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase',
+        !first && 'mt-6',
+      )}
+    >
+      {group?.title}
+    </h2>
+  );
+}
+
+function BackToTop({ visible }: { visible: boolean }) {
+  if (!visible) {
+    return null;
+  }
+  return (
+    <a
+      {...linkProps({ name: 'help' })}
+      className="back-to-top press fixed right-4 bottom-4 z-20 inline-flex items-center gap-1.5 rounded-md border bg-background/90 px-3 py-1.5 text-xs text-muted-foreground shadow-sm outline-ring/50 backdrop-blur hover:text-foreground focus-visible:outline-2 sm:right-6 sm:bottom-6"
+    >
+      <ArrowUpIcon weight="bold" aria-hidden="true" />
+      Back to top
+    </a>
+  );
+}
 
 function Section({
   id,
@@ -338,15 +592,42 @@ function Section({
   index: number;
   children: React.ReactNode;
 }) {
+  const toast = useToast();
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(
+        `${window.location.origin}/help#${id}`,
+      );
+      toast.show(`Link to “${title}” copied`);
+    } catch {
+      toast.show('Could not copy the link');
+    }
+  }
   return (
     <section
       id={id}
-      className="stagger-in scroll-mt-20 grid gap-3 text-sm leading-relaxed text-muted-foreground [&_p]:text-pretty"
+      aria-labelledby={`${id}-title`}
+      className="stagger-in grid scroll-mt-32 gap-3 text-sm leading-relaxed text-muted-foreground lg:scroll-mt-20 [&_p]:text-pretty"
       style={{ '--i': Math.min(index, 8) } as React.CSSProperties}
     >
-      <h2 className="font-heading text-xl font-semibold tracking-tight text-foreground">
-        {title}
-      </h2>
+      <div className="group/heading flex items-center gap-1">
+        <h3
+          id={`${id}-title`}
+          tabIndex={-1}
+          className="font-heading text-xl font-semibold tracking-tight text-foreground outline-ring/50 focus-visible:outline-2"
+        >
+          {title}
+        </h3>
+        <button
+          type="button"
+          onClick={copyLink}
+          aria-label={`Copy link to ${title}`}
+          title="Copy link"
+          className="press inline-flex size-7 items-center justify-center rounded-md text-muted-foreground opacity-0 outline-ring/50 transition-opacity group-hover/heading:opacity-100 hover:text-foreground focus-visible:opacity-100 focus-visible:outline-2 hover-none:opacity-100"
+        >
+          <LinkSimpleIcon weight="bold" aria-hidden="true" />
+        </button>
+      </div>
       {children}
     </section>
   );
