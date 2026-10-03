@@ -1,5 +1,5 @@
 import type { WebWorkerMLCEngine } from '@mlc-ai/web-llm';
-import { ANALYSIS_MODEL, SYSTEM_PROMPT } from '@/lib/analysis';
+import { SYSTEM_PROMPT } from '@/lib/analysis';
 
 /**
  * The analysis model, behind a Web Worker. `@mlc-ai/web-llm` is imported
@@ -18,11 +18,11 @@ export function webGpuSupported(): boolean {
   return typeof navigator !== 'undefined' && 'gpu' in navigator;
 }
 
-/** Whether the weights are already in this browser's cache. */
-export async function isModelCached(): Promise<boolean> {
+/** Whether a model's weights are already in this browser's cache. */
+export async function isModelCached(modelId: string): Promise<boolean> {
   const { hasModelInCache } = await import('@mlc-ai/web-llm');
   try {
-    return await hasModelInCache(ANALYSIS_MODEL.id);
+    return await hasModelInCache(modelId);
   } catch {
     return false;
   }
@@ -32,8 +32,11 @@ export class AnalysisEngine {
   private worker: Worker | null = null;
   private engine: WebWorkerMLCEngine | null = null;
 
-  /** Download (first time) and load the model. Reports progress as it goes. */
-  async load(onProgress: (progress: LoadProgress) => void): Promise<void> {
+  /** Download (first time) and load a model. Reports progress as it goes. */
+  async load(
+    modelId: string,
+    onProgress: (progress: LoadProgress) => void,
+  ): Promise<void> {
     const { CreateWebWorkerMLCEngine } = await import('@mlc-ai/web-llm');
     const worker = new Worker(
       new URL('./analysis.worker.ts', import.meta.url),
@@ -41,7 +44,7 @@ export class AnalysisEngine {
     );
     this.worker = worker;
     try {
-      this.engine = await CreateWebWorkerMLCEngine(worker, ANALYSIS_MODEL.id, {
+      this.engine = await CreateWebWorkerMLCEngine(worker, modelId, {
         initProgressCallback: (report) =>
           onProgress({ fraction: report.progress, text: report.text }),
         logLevel: 'WARN',

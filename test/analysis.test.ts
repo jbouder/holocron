@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { createBoard, reduce } from '#shared/reducer';
 import type { Actor, Board } from '#shared/types';
 import {
+  ANALYSIS_MODELS,
+  DEFAULT_MODEL,
   describeBoard,
+  findModel,
   parseActionDrafts,
   parseGroupings,
   parseThemes,
@@ -217,5 +220,14 @@ describe('parsers', () => {
       { text: 'Keep pairing', cardId: null },
       { text: 'No card', cardId: null },
     ]);
+  });
+});
+
+describe('findModel', () => {
+  it('returns the stored pick, or the default for anything else', () => {
+    expect(findModel(ANALYSIS_MODELS[1].id)).toBe(ANALYSIS_MODELS[1]);
+    expect(findModel(null)).toBe(DEFAULT_MODEL);
+    expect(findModel('Llama-2-7b-chat-hf-q4f16_1')).toBe(DEFAULT_MODEL);
+    expect(DEFAULT_MODEL).toBe(ANALYSIS_MODELS[0]);
   });
 });
