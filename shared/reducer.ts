@@ -53,9 +53,10 @@ export function createBoard(input: CreateBoardInput): Board {
     ownerId: input.ownerId,
     settings: { ...DEFAULT_SETTINGS, ...input.settings },
     timer: null,
-    columns: template.columns.map((title, i) => ({
+    columns: template.columns.map((c, i) => ({
       id: `col-${i + 1}`,
-      title,
+      title: c.title,
+      prompt: c.prompt,
       position: i,
     })),
     cards: [],
@@ -77,6 +78,7 @@ export function upgradeBoard(board: Board): Board {
     ...board,
     reactions: board.reactions ?? [],
     comments: board.comments ?? [],
+    columns: board.columns.map((c) => ({ ...c, prompt: c.prompt ?? '' })),
     done: board.done ?? [],
   };
 }
@@ -602,7 +604,12 @@ export function reduce(
         ...board,
         columns: [
           ...board.columns,
-          { id: op.id, title: op.title, position: board.columns.length },
+          {
+            id: op.id,
+            title: op.title,
+            prompt: '',
+            position: board.columns.length,
+          },
         ],
       };
     }
@@ -616,6 +623,21 @@ export function reduce(
         ...board,
         columns: board.columns.map((c) =>
           c.id === op.id ? { ...c, title: op.title } : c,
+        ),
+      };
+    }
+
+    case 'setColumnPrompt': {
+      requireFacilitator(board, actor);
+      if (!board.columns.some((c) => c.id === op.id)) {
+        fail('That column is gone');
+      }
+      // One line: it renders under the title and as one line of the export.
+      const prompt = op.prompt.replace(/\s+/g, ' ');
+      return {
+        ...board,
+        columns: board.columns.map((c) =>
+          c.id === op.id ? { ...c, prompt } : c,
         ),
       };
     }

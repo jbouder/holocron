@@ -119,18 +119,24 @@ export function HelpPage() {
             Turnstile) before the Create button works; joining never does.
           </p>
           <p>
-            Templates set the starting columns. Anyone on the board can add,
-            rename and remove columns afterwards (up to {LIMITS.columnsMax}),
-            unless the owner has locked facilitation to themselves.
+            Templates set the starting columns, each with a one-line prompt
+            under its title. Anyone on the board can add, rename and remove
+            columns and edit their prompts afterwards (up to {LIMITS.columnsMax}{' '}
+            columns), from the column's <Kbd>⋯</Kbd> menu, unless the owner has
+            locked facilitation to themselves.
           </p>
           <ul className="grid gap-2 sm:grid-cols-2">
             {TEMPLATES.map((t) => (
               <li key={t.id} className="rounded-md border p-3">
                 <div className="font-medium">{t.name}</div>
                 <div className="mt-1 flex flex-wrap gap-1">
-                  {t.columns.map((c) => (
-                    <Badge key={c} variant="outline" className="font-normal">
-                      {c}
+                  {t.columns.map(({ title }) => (
+                    <Badge
+                      key={title}
+                      variant="outline"
+                      className="font-normal"
+                    >
+                      {title}
                     </Badge>
                   ))}
                 </div>

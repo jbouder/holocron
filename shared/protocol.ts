@@ -83,6 +83,12 @@ export const OpSchema = z.discriminatedUnion('type', [
     id,
     title: text(LIMITS.columnTitleMax),
   }),
+  z.object({
+    type: z.literal('setColumnPrompt'),
+    id,
+    /** Empty clears the prompt. */
+    prompt: z.string().trim().max(LIMITS.columnPromptMax),
+  }),
   z.object({ type: z.literal('deleteColumn'), id }),
   z.object({
     type: z.literal('addActionItem'),
