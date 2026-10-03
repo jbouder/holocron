@@ -7,6 +7,7 @@ import {
   GearSixIcon,
   HourglassIcon,
   ShareNetworkIcon,
+  SparkleIcon,
   TrashIcon,
 } from '@phosphor-icons/react';
 import { useEffect, useRef, useState } from 'react';
@@ -18,6 +19,7 @@ import {
   ActionItemsSheet,
   type ActionsSheetState,
 } from '@/components/board/ActionItemsSheet';
+import { AnalysisPanel } from '@/components/board/AnalysisPanel';
 import { DeleteBoardDialog } from '@/components/board/DeleteBoardDialog';
 import { ExportDialog } from '@/components/board/ExportDialog';
 import { PhaseStepper } from '@/components/board/PhaseStepper';
@@ -64,6 +66,7 @@ export function BoardToolbar({
   const [exporting, setExporting] = useState(false);
   const [settings, setSettings] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [analysing, setAnalysing] = useState(false);
   const openActionsSheet = () => onActionsChange({ open: true, cardId: null });
 
   const canFacilitate = !board.settings.facilitatorOnly || you.isOwner;
@@ -150,7 +153,7 @@ export function BoardToolbar({
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuItem onClick={() => setExporting(true)}>
                   <DownloadSimpleIcon />
-                  Export as Markdown
+                  Export
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={openActionsSheet}>
                   <CheckSquareIcon />
@@ -234,6 +237,34 @@ export function BoardToolbar({
                 </span>
               )}
             </Button>
+            {you.isOwner &&
+              (board.phase === 'discuss' ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="press"
+                  onClick={() => setAnalysing(true)}
+                >
+                  <SparkleIcon data-icon="inline-start" />
+                  Analysis
+                </Button>
+              ) : (
+                <Tooltip>
+                  <TooltipTrigger render={<span className="inline-flex" />}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="press"
+                      disabled
+                      aria-label="Analysis, available in Discuss"
+                    >
+                      <SparkleIcon data-icon="inline-start" />
+                      Analysis
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Available in Discuss</TooltipContent>
+                </Tooltip>
+              ))}
             <TimerControl
               timer={board.timer}
               enabled={canFacilitate}
@@ -280,6 +311,13 @@ export function BoardToolbar({
       />
       {you.isOwner && (
         <>
+          <AnalysisPanel
+            open={analysing}
+            onOpenChange={setAnalysing}
+            board={board}
+            you={you}
+            dispatch={dispatch}
+          />
           <SettingsDialog
             open={settings}
             onOpenChange={setSettings}

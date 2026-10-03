@@ -22,6 +22,9 @@ itself on an alarm.
 - `src/` — React 19 + Vite app. `hooks/useBoard.ts` is the live connection
   (optimistic ops over a confirmed snapshot). `components/board/*` is the board
   UI, `pages/*` the four routes, `lib/router.ts` a small pushState router.
+  `lib/analysis.ts` + `hooks/useAnalysis.ts` + `components/board/AnalysisPanel.tsx`
+  are the owner-only in-browser analysis (WebLLM in `lib/analysis.worker.ts`,
+  lazy-loaded; the prompt never carries names or ids).
 - `test/` — Vitest running inside workerd (`@cloudflare/vitest-plugin`).
 - `docs/` — self-hosting, architecture, data retention. The in-app Help page
   (`src/pages/HelpPage.tsx`) covers *using* the tool only.

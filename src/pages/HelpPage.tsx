@@ -4,6 +4,7 @@ import { LIMITS } from '#shared/limits';
 import { TEMPLATES } from '#shared/templates';
 import { DEFAULT_SETTINGS, REACTIONS } from '#shared/types';
 import { Badge } from '@/components/ui/badge';
+import { ANALYSIS_MODEL } from '@/lib/analysis';
 import { linkProps, navigate, useRoute } from '@/lib/router';
 import { cn } from '@/lib/utils';
 import { useConfig } from '@/pages/HomePage';
@@ -337,9 +338,36 @@ export function HelpPage() {
           </p>
         </Section>
 
+        <Section id="analysis" title="Analysis" index={12}>
+          <p>
+            In Discuss, the owner's toolbar has an Analysis button. It opens a
+            panel where a small language model reads the board and offers three
+            things: a summary of the themes, each citing the cards it comes
+            from; groupings of cards that say the same thing; and draft action
+            items. Nobody else on the board sees the button or the panel.
+          </p>
+          <p>
+            The model runs in your browser, on your graphics card, so no card
+            text goes to a server or an AI service. The first time, it asks
+            before downloading the model ({ANALYSIS_MODEL.name},{' '}
+            {ANALYSIS_MODEL.downloadLabel}, from {ANALYSIS_MODEL.source}), which
+            then stays cached in this browser for next time. It needs WebGPU,
+            which recent Chrome, Edge, Safari and Firefox have on most hardware;
+            the panel says so if yours does not.
+          </p>
+          <p>
+            Everything in the panel is a suggestion and can be wrong. Nothing
+            touches the board until you accept one: accepting a grouping stacks
+            the cards as a drag would, and accepting an action item adds it to
+            the list linked to its card, where everyone sees it live. The
+            suggestions themselves are never saved or exported, and nothing new
+            is left for the daily wipe.
+          </p>
+        </Section>
+
         <GroupHeading id="data-and-settings" />
 
-        <Section id="data" title="Data and retention" index={12}>
+        <Section id="data" title="Data and retention" index={13}>
           <p>
             <strong className="text-foreground">
               Every board is wiped daily at {resetLabel}.
@@ -362,7 +390,7 @@ export function HelpPage() {
           </p>
         </Section>
 
-        <Section id="shortcuts" title="Keyboard" index={13}>
+        <Section id="shortcuts" title="Keyboard" index={14}>
           <ul className="grid gap-1.5">
             <li>
               <Kbd>Enter</Kbd> post the card you are typing
@@ -389,7 +417,7 @@ export function HelpPage() {
           </ul>
         </Section>
 
-        <Section id="preferences" title="Preferences" index={14}>
+        <Section id="preferences" title="Preferences" index={15}>
           <p>
             The gear icon holds a motion switch, the timer sound, the theme, and
             your name. Themes: System (follows your device), Light, Dark (side),
@@ -449,7 +477,10 @@ const GROUPS = [
   {
     id: 'owner',
     title: 'For the board owner',
-    sections: [{ id: 'ownership', title: 'Ownership' }],
+    sections: [
+      { id: 'ownership', title: 'Ownership' },
+      { id: 'analysis', title: 'Analysis' },
+    ],
   },
   {
     id: 'data-and-settings',
