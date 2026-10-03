@@ -147,7 +147,7 @@ function CreatePanel({
                 placeholder="e.g. Leia"
               />
             </div>
-            <div className="grid gap-2">
+            <div className="grid gap-2 xl:col-span-2">
               <Label htmlFor="create-title">
                 Board title{' '}
                 <span className="text-muted-foreground">(optional)</span>
