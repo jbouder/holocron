@@ -260,21 +260,23 @@ describe('voting', () => {
 });
 
 describe('facilitation', () => {
-  it('lets anyone change phase unless the owner locks it', () => {
-    const open = reduce(fresh(), { type: 'setPhase', phase: 'vote' }, han);
-    expect(open.phase).toBe('vote');
-
-    const locked = reduce(
-      fresh(),
-      { type: 'updateSettings', settings: { facilitatorOnly: true } },
-      owner,
-    );
+  it('locks phase to the owner by default, until the owner opens it', () => {
+    expect(fresh().settings.facilitatorOnly).toBe(true);
     expect(() =>
-      reduce(locked, { type: 'setPhase', phase: 'vote' }, han),
+      reduce(fresh(), { type: 'setPhase', phase: 'vote' }, han),
     ).toThrow(/owner/);
     expect(
-      reduce(locked, { type: 'setPhase', phase: 'vote' }, owner).phase,
+      reduce(fresh(), { type: 'setPhase', phase: 'vote' }, owner).phase,
     ).toBe('vote');
+
+    const open = reduce(
+      fresh(),
+      { type: 'updateSettings', settings: { facilitatorOnly: false } },
+      owner,
+    );
+    expect(reduce(open, { type: 'setPhase', phase: 'vote' }, han).phase).toBe(
+      'vote',
+    );
   });
 
   it('only the owner changes settings', () => {
@@ -315,20 +317,20 @@ describe('facilitation', () => {
         id: 'col-1',
         prompt: 'What  should\nwe keep?',
       },
-      han,
+      owner,
     );
     expect(board.columns[0].prompt).toBe('What should we keep?');
     board = reduce(
       board,
       { type: 'setColumnPrompt', id: 'col-1', prompt: '' },
-      han,
+      owner,
     );
     expect(board.columns[0].prompt).toBe('');
     expect(() =>
       reduce(
         board,
         { type: 'setColumnPrompt', id: 'col-x', prompt: 'Hi' },
-        han,
+        owner,
       ),
     ).toThrow(/gone/);
   });
@@ -1097,7 +1099,7 @@ describe('export formats', () => {
       [add('b', 'Nobody knew who wrote this', true), luke],
       [add('c', 'Pairing helped'), han],
       [add('d', 'Pairing again'), luke],
-      [{ type: 'groupCards', id: 'd', targetId: 'c', groupId: 'g1' }, han],
+      [{ type: 'groupCards', id: 'd', targetId: 'c', groupId: 'g1' }, owner],
       [{ type: 'setPhase', phase: 'vote' }, owner],
       [{ type: 'vote', cardId: 'b' }, han],
       [{ type: 'vote', cardId: 'b' }, han],
