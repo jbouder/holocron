@@ -1197,6 +1197,32 @@ describe('crowded boards', () => {
     expect(closed.reason).toBe('tabs');
   });
 
+  it('caps sockets per board, but never shuts the owner out', async () => {
+    const created = await createBoard();
+    // 24 participants x 5 tabs fill the 120 sockets without filling seats.
+    const tabs: Client[] = [];
+    for (let i = 0; tabs.length < LIMITS.socketsMax; i++) {
+      for (let t = 0; t < LIMITS.socketsPerParticipant; t++) {
+        const tab = await join(created.code, `p${i}`, `P${i}`);
+        await tab.next('snapshot');
+        tabs.push(tab);
+      }
+    }
+    const late = await join(created.code, 'late', 'Late');
+    const closed = await closeOf(late);
+    expect(closed.code).toBe(1008);
+    expect(closed.reason).toBe('full');
+
+    const owner = await join(
+      created.code,
+      'owner-1',
+      'Leia',
+      created.ownerToken,
+    );
+    const snapshot = await owner.next('snapshot');
+    expect(snapshot.you.isOwner).toBe(true);
+  });
+
   it('binds nothing for a join it turns away', async () => {
     const created = await createBoard();
     const clients = await fill(created.code);

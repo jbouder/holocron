@@ -158,14 +158,16 @@ platform's WebSocket message limit before `JSON.parse`.
 | Ops per socket | 20/s sliding window | `rejected` "Too many changes at once"; sender rolls back |
 | Wrong handoff codes | 5/min per board, 10-minute code | 429; at most ~50 guesses per code against 10⁹ |
 | Seats | 50 per board; a full board gives a newcomer the first idle seat | close `1008 full` |
-| Sockets | 5 per participant, 120 per board | close `1008 tabs` / `1008 full` |
+| Sockets | 5 per participant, 120 per board (the owner is exempt from the board cap) | close `1008 tabs` / `1008 full` |
 | Document size | bounded by the limits above | each op re-persists the whole document |
 
 Seats and sockets (fixed in [#71](https://github.com/jbouder/holocron/issues/71)):
 
 - A participant may hold 5 sockets and a board 120, counted before a new
   socket joins them. Past either, the socket closes with `1008 tabs` or
-  `1008 full`, and the client shows a page instead of retrying.
+  `1008 full`, and the client shows a page instead of retrying. The board
+  cap does not apply to a socket that carries the owner token, so a crowd
+  of tabs cannot keep the owner from running or ending the retro.
 - A full board gives a newcomer the first seat (in joining order) whose
   holder is offline and left nothing public: no signed card or comment,
   vote, reaction or "done" (`canReleaseSeat`). The release is a server-only

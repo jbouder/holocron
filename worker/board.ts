@@ -385,12 +385,14 @@ export class BoardObject extends DurableObject<Bindings> {
       this.ownerHash !== null &&
       (await sha256(token)) === this.ownerHash;
 
-    // Counted before this socket joins them.
+    // Counted before this socket joins them. The board cap never shuts the
+    // owner out: a crowd of tabs must not stop them running (or ending) the
+    // retro. Their own tab cap still applies.
     const open = this.ctx
       .getWebSockets()
       .map((ws) => ws.deserializeAttachment() as Attachment | null);
     const crowded =
-      open.length >= LIMITS.socketsMax
+      open.length >= LIMITS.socketsMax && !isOwner
         ? 'full'
         : open.filter((a) => a?.id === id).length >=
             LIMITS.socketsPerParticipant
