@@ -74,7 +74,7 @@ export function HelpPage() {
   }, [route]);
 
   return (
-    <div className="mx-auto w-full max-w-6xl flex-1 px-4 py-10 sm:px-6 lg:grid lg:grid-cols-[13rem_minmax(0,48rem)] lg:content-start lg:gap-x-12">
+    <div className="w-full flex-1 px-4 py-10 sm:px-6 lg:grid lg:grid-cols-[13rem_minmax(0,48rem)] lg:content-start lg:gap-x-12">
       <aside className="hidden lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:block">
         <TableOfContents current={current} />
       </aside>

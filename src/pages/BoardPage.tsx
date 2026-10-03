@@ -165,10 +165,7 @@ export function BoardPage({ code }: { code: string }) {
 
 function BoardSkeleton({ waiting }: { waiting: boolean }) {
   return (
-    <div
-      className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6"
-      aria-busy="true"
-    >
+    <div className="w-full flex-1 px-4 py-6 sm:px-6" aria-busy="true">
       <div className="mb-6 flex items-center gap-3">
         <div className="h-7 w-48 rounded bg-muted" />
         <div className="h-5 w-20 rounded bg-muted" />

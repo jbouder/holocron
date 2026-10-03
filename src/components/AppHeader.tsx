@@ -12,7 +12,7 @@ import { linkProps, type Route } from '@/lib/router';
 export function AppHeader({ route }: { route: Route }) {
   return (
     <header className="sticky top-0 z-30 border-b bg-background/85 backdrop-blur supports-backdrop-filter:bg-background/70">
-      <div className="mx-auto flex h-14 w-full max-w-7xl items-center gap-3 px-4 sm:px-6">
+      <div className="flex h-14 w-full items-center gap-3 px-4 sm:px-6">
         <a
           {...linkProps({ name: 'home' })}
           className="press flex items-center gap-2 rounded-md font-heading text-base font-semibold tracking-tight outline-ring/50 focus-visible:outline-2"

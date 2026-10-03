@@ -33,9 +33,9 @@ export function GonePage({
   }
   const copy = COPY[reason];
   return (
-    <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-6 px-4 py-16 text-center">
+    <div className="flex w-full flex-1 flex-col items-center justify-center gap-6 px-4 py-16 text-center">
       <div
-        className="stagger-in grid gap-2"
+        className="stagger-in grid max-w-md gap-2"
         style={{ '--i': 0 } as React.CSSProperties}
       >
         {code && (
