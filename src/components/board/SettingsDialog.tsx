@@ -1,6 +1,7 @@
 import { LIMITS } from '#shared/limits';
 import type { Op } from '#shared/protocol';
 import type { Board } from '#shared/types';
+import { HelpLink } from '@/components/HelpLink';
 import {
   Dialog,
   DialogContent,
@@ -88,6 +89,12 @@ export function SettingsDialog({
             onChange={(v) => update({ facilitatorOnly: v })}
           />
         </div>
+        {/* Last in the DOM so the dialog's initial focus skips it. */}
+        <HelpLink
+          section="ownership"
+          label="Ownership and settings"
+          className="absolute top-2 right-10 size-7"
+        />
       </DialogContent>
     </Dialog>
   );
