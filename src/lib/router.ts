@@ -13,7 +13,8 @@ export type GoneReason =
   | 'missing'
   | 'refused'
   | 'full'
-  | 'replaced';
+  | 'replaced'
+  | 'removed';
 
 export type Route =
   | { name: 'home' }

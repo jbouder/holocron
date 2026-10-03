@@ -1,6 +1,13 @@
-import { CheckIcon, CrownSimpleIcon } from '@phosphor-icons/react';
+import {
+  CheckIcon,
+  CrownSimpleIcon,
+  UsersThreeIcon,
+} from '@phosphor-icons/react';
+import { useState } from 'react';
 import { votesLeft } from '#shared/reducer';
 import type { Board } from '#shared/types';
+import { PeopleDialog } from '@/components/board/PeopleDialog';
+import { Button } from '@/components/ui/button';
 import {
   Tooltip,
   TooltipContent,
@@ -14,8 +21,18 @@ const SHOW = 6;
  * Who is here. Offline participants stay, dimmed; owner wears the crown.
  * In Write a check marks who said they are done; in Vote each avatar shows
  * how many votes that person has left (a count only, never where they went).
+ * The owner gets a People button (`onRemove`) to take someone off the board.
  */
-export function Presence({ board, youId }: { board: Board; youId: string }) {
+export function Presence({
+  board,
+  youId,
+  onRemove,
+}: {
+  board: Board;
+  youId: string;
+  onRemove?: (participantId: string) => void;
+}) {
+  const [managing, setManaging] = useState(false);
   const { participants, ownerId, phase } = board;
   const sorted = [...participants].sort((a, b) => {
     if (a.id === youId) return -1;
@@ -99,6 +116,33 @@ export function Presence({ board, youId }: { board: Board; youId: string }) {
           </li>
         )}
       </ul>
+      {onRemove && (
+        <>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="People on this board"
+                  className="press"
+                  onClick={() => setManaging(true)}
+                />
+              }
+            >
+              <UsersThreeIcon />
+            </TooltipTrigger>
+            <TooltipContent>People</TooltipContent>
+          </Tooltip>
+          <PeopleDialog
+            open={managing}
+            onOpenChange={setManaging}
+            board={board}
+            youId={youId}
+            onRemove={onRemove}
+          />
+        </>
+      )}
       {tracking && here.length > 0 && (
         <Tooltip>
           <TooltipTrigger

@@ -101,7 +101,8 @@ export function BoardPage({ code }: { code: string }) {
       status === 'missing' ||
       status === 'refused' ||
       status === 'full' ||
-      status === 'replaced'
+      status === 'replaced' ||
+      status === 'removed'
     ) {
       markGone(status, code);
     }

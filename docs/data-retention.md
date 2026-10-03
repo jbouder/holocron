@@ -20,6 +20,8 @@ browser that posted it is told it is theirs. Votes and reactions are not
 anonymous: everyone can see who voted or reacted.
 - action items: text, owner name, done flag
 - participants: id and display name
+- the ids of participants the owner removed, so they can't rejoin before
+  the wipe
 - a SHA-256 hash of each participant's browser secret (never the secret), so
   nobody else can connect under their id
 - a SHA-256 hash of the owner token (never the token)

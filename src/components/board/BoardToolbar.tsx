@@ -126,7 +126,16 @@ export function BoardToolbar({
           </Tooltip>
 
           <div className="ml-auto flex items-center gap-2">
-            <Presence board={board} youId={you.id} />
+            <Presence
+              board={board}
+              youId={you.id}
+              onRemove={
+                you.isOwner
+                  ? (participantId) =>
+                      dispatch({ type: 'removeParticipant', participantId })
+                  : undefined
+              }
+            />
             <Button
               variant="outline"
               size="sm"

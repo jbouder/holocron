@@ -28,6 +28,10 @@ const COPY = {
     title: 'This board moved to another tab',
     body: `This browser can have it open in ${LIMITS.socketsPerParticipant} tabs at once, and a newer tab took this one’s place. Reload to use it here instead.`,
   },
+  removed: {
+    title: 'You were removed from this board',
+    body: 'Its owner took you off it. You can’t rejoin until it resets. Your cards and comments stay on it.',
+  },
 } as const;
 
 export function GonePage({

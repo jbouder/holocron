@@ -1603,3 +1603,122 @@ describe('the hello handshake', () => {
     expect((await newest.next('snapshot')).you.id).toBe('late');
   });
 });
+
+describe('removing a participant', () => {
+  async function seatedBoard() {
+    const created = await createBoard();
+    const owner = await join(
+      created.code,
+      'owner-1',
+      'Leia',
+      created.ownerToken,
+    );
+    const han = await join(created.code, 'han', 'Han');
+    const hanTab = await join(created.code, 'han', 'Han');
+    const luke = await join(created.code, 'luke', 'Luke');
+    const rey = await join(created.code, 'rey', 'Rey');
+    await Promise.all(
+      [owner, han, hanTab, luke, rey].map((c) => c.next('snapshot')),
+    );
+    return { created, owner, han, hanTab, luke, rey };
+  }
+
+  /** Han adds a card, and Luke has heard it. */
+  async function hanAdds(han: Client, luke: Client, anonymous: boolean) {
+    const seen = luke.messages.length;
+    han.send({
+      type: 'addCard',
+      id: anonymous ? 'anon' : 'signed',
+      columnId: 'col-1',
+      text: 'Mine',
+      anonymous,
+    });
+    await vi.waitFor(() =>
+      expect(
+        luke.messages
+          .slice(seen)
+          .some((m) => m.type === 'op' && m.op.type === 'addCard'),
+      ).toBe(true),
+    );
+  }
+
+  it('closes every tab of theirs and keeps them out until the wipe', async () => {
+    const { created, owner, han, hanTab, luke } = await seatedBoard();
+    await hanAdds(han, luke, false);
+
+    const closes = [closeOf(han), closeOf(hanTab)];
+    const seen = luke.messages.length;
+    owner.send({ type: 'removeParticipant', participantId: 'han' });
+    for (const event of await Promise.all(closes)) {
+      expect(event.code).toBe(1008);
+      expect(event.reason).toBe('removed');
+    }
+    const echo = await luke.next('op', seen);
+    expect(echo.op).toEqual({
+      type: 'removeParticipant',
+      participantId: 'han',
+    });
+    expect(echo.actor.id).toBe('owner-1');
+    const presence = await luke.next('presence', seen);
+    expect(presence.participants.map((p) => p.id)).not.toContain('han');
+
+    // The same browser can't come back, and their signed card stays.
+    const back = await join(created.code, 'han', 'Han');
+    expect((await closeOf(back)).reason).toBe('removed');
+    const watcher = await join(created.code, 'watch', 'Watcher');
+    const snapshot = await watcher.next('snapshot');
+    expect(snapshot.board.cards.map((c) => c.authorId)).toEqual(['han']);
+    expect(snapshot.board.removed).toEqual(['han']);
+  });
+
+  it('is refused to anyone but the owner, and on the owner', async () => {
+    const { owner, luke } = await seatedBoard();
+    luke.send({ type: 'removeParticipant', participantId: 'han' });
+    expect((await luke.next('rejected')).reason).toBe(
+      'Only the board owner can remove someone',
+    );
+    owner.send({ type: 'removeParticipant', participantId: 'owner-1' });
+    expect((await owner.next('rejected')).reason).toBe(
+      'The owner cannot be removed',
+    );
+  });
+
+  it('looks the same to everyone else whether or not they wrote anonymously', async () => {
+    const { created, owner, han, luke } = await seatedBoard();
+    // Han holds an anonymous card; Rey holds nothing.
+    await hanAdds(han, luke, true);
+
+    /** What Luke hears when the owner removes `id`, ids blanked out. */
+    async function heardOnRemoving(id: string) {
+      const seen = luke.messages.length;
+      owner.send({ type: 'removeParticipant', participantId: id });
+      await luke.next('presence', seen);
+      return luke.messages.slice(seen).map((m) => {
+        if (m.type === 'presence') {
+          return { type: m.type };
+        }
+        const {
+          seq: _s,
+          at: _a,
+          opId: _o,
+          ...rest
+        } = m as Extract<ServerMessage, { type: 'op' }>;
+        return JSON.parse(JSON.stringify(rest).replaceAll(`"${id}"`, '"X"'));
+      });
+    }
+    const hanGone = await heardOnRemoving('han');
+    const reyGone = await heardOnRemoving('rey');
+    expect(hanGone).toEqual(reyGone);
+    expect(JSON.stringify(luke.messages)).not.toMatch(/"authorId":"han"/);
+
+    // Han's binding stays, so nobody else can ever take over the anonymous
+    // card; Rey's goes with the seat.
+    await runInDurableObject(stubFor(created.code), async (_i, state) => {
+      const secrets =
+        (await state.storage.get<Record<string, string>>(
+          'participantSecrets',
+        )) ?? {};
+      expect(Object.keys(secrets).sort()).toEqual(['han', 'luke', 'owner-1']);
+    });
+  });
+});

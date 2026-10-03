@@ -740,6 +740,11 @@ describe('upgradeBoard', () => {
     const { done: _d, ...old } = fresh();
     expect(upgradeBoard(old as Board).done).toEqual([]);
   });
+
+  it('fills in removed on boards stored before it existed', () => {
+    const { removed: _r, ...old } = fresh();
+    expect(upgradeBoard(old as Board).removed).toEqual([]);
+  });
 });
 
 describe('done signals', () => {
@@ -1906,5 +1911,101 @@ describe('Markdown export escaping', () => {
     const out = boardToMarkdown(board, 0);
     expect(out).not.toContain('\r');
     expect(out).toContain('- foo - \\[x\\] fake 1. two');
+  });
+});
+
+describe('removing a participant', () => {
+  const remove = (participantId: string): Op => ({
+    type: 'removeParticipant',
+    participantId,
+  });
+
+  /** Han signs a card, writes an anonymous one, comments, reacts and votes. */
+  function busy(anonymousAuthor: Actor = han): Board {
+    return apply(fresh(), [
+      [add('signed', 'Signed'), han],
+      [add('anon', 'Secret', true), anonymousAuthor],
+      [
+        {
+          type: 'addComment',
+          id: 'c',
+          cardId: 'signed',
+          text: 'Hm',
+          anonymous: false,
+        },
+        han,
+      ],
+      [{ type: 'toggleReaction', cardId: 'signed', emoji: '👍' }, han],
+      [add('l1', 'Luke one'), luke],
+      [{ type: 'toggleReaction', cardId: 'l1', emoji: '🎉' }, luke],
+      [{ type: 'setPhase', phase: 'vote' }, owner],
+      [{ type: 'vote', cardId: 'l1' }, han],
+      [{ type: 'vote', cardId: 'l1' }, luke],
+    ]);
+  }
+
+  it('takes them off, keeps their cards and comments, drops their votes and reactions', () => {
+    const before = busy();
+    const after = reduce(before, remove(han.id), owner);
+    expect(after.participants.map((p) => p.id)).toEqual(['owner', 'luke']);
+    expect(after.cards).toEqual(before.cards);
+    expect(after.comments).toEqual(before.comments);
+    expect(after.votes).toEqual([
+      { cardId: 'l1', participantId: 'luke', count: 1 },
+    ]);
+    expect(after.reactions.map((r) => r.participantId)).toEqual(['luke']);
+    expect(after.removed).toEqual(['han']);
+  });
+
+  it('clears their done', () => {
+    const board = apply(fresh(), [
+      [{ type: 'setDone', done: true }, han],
+      [{ type: 'setDone', done: true }, luke],
+    ]);
+    expect(reduce(board, remove(han.id), owner).done).toEqual(['luke']);
+  });
+
+  it('is the owner’s alone, and never on the owner', () => {
+    const board = busy();
+    expect(() => reduce(board, remove(han.id), luke)).toThrow(
+      'Only the board owner can remove someone',
+    );
+    expect(() => reduce(board, remove(owner.id), owner)).toThrow(
+      'The owner cannot be removed',
+    );
+    expect(() => reduce(board, remove('nobody'), owner)).toThrow(
+      'They are not on this board',
+    );
+  });
+
+  it('keeps them off until the wipe', () => {
+    const board = reduce(busy(), remove(han.id), owner);
+    expect(() => reduce(board, { type: 'setName', name: 'Han' }, han)).toThrow(
+      'The owner removed you from this board',
+    );
+    expect(() => reduce(board, add('back', 'Back'), han)).toThrow(OpError);
+    expect(() => reduce(board, remove(han.id), owner)).toThrow(
+      'They are not on this board',
+    );
+  });
+
+  it('says nothing about who wrote an anonymous card', () => {
+    // The same board with the anonymous card by Han or by Luke: after Han
+    // goes, what a client can read is the same either way.
+    const byHan = reduce(busy(han), remove(han.id), owner);
+    const byLuke = reduce(busy(luke), remove(han.id), owner);
+    expect(redactAnonymous(byHan)).toEqual(redactAnonymous(byLuke));
+  });
+
+  it('replays on a client’s redacted board to the server’s result', () => {
+    const before = busy();
+    const server = reduce(before, remove(han.id), owner, 9_000);
+    const client = reduce(
+      redactAnonymous(before),
+      remove(han.id),
+      owner,
+      9_000,
+    );
+    expect(client).toEqual(redactAnonymous(server));
   });
 });
