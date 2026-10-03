@@ -190,8 +190,8 @@ export function HelpPage() {
           </dl>
           <p>
             By default only the owner can move the phase, set the timer, rename
-            the board and change its columns. To share that with everyone,
-            the owner turns off "Only I can facilitate" in Settings.
+            the board and change its columns. To share that with everyone, the
+            owner turns off "Only I can facilitate" in Settings.
           </p>
         </Section>
 
