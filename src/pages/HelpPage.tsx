@@ -194,7 +194,11 @@ export function HelpPage() {
           <p>
             The timer in the toolbar runs for everyone. Pick a length from one
             to {LIMITS.timerMaxMs / 60_000} minutes; it counts down on every
-            screen and pulses when it reaches zero. There is no sound.
+            screen and pulses when it reaches zero. At zero each device also
+            plays a short chime and puts "⏰ Time's up" in the tab title, so you
+            notice from another tab. The title goes back when you return to the
+            tab. Turn the chime off with Timer sound in Preferences. Your
+            browser only plays it once you have clicked or typed on the page.
           </p>
         </Section>
 
@@ -246,9 +250,9 @@ export function HelpPage() {
             the name you type, and nothing is kept after the wipe.
           </p>
           <p>
-            Your name, your random identity, your theme and motion preferences,
-            and the list of recent boards are stored in this browser's local
-            storage. Clearing site data removes them.
+            Your name, your random identity, your theme, motion and timer-sound
+            preferences, and the list of recent boards are stored in this
+            browser's local storage. Clearing site data removes them.
           </p>
         </Section>
 
@@ -281,12 +285,13 @@ export function HelpPage() {
 
         <Section id="preferences" title="Preferences" index={14}>
           <p>
-            The gear icon holds a motion switch, the theme, and your name.
-            Themes: System (follows your device), Light, Dark (side), and three
-            just for fun: Dagobah, Tatooine and Synthwave. The theme is yours
-            alone; other people on the board keep their own. Motion follows your
-            operating system's "reduce motion" setting first; when that is on,
-            the switch is disabled and nothing animates.
+            The gear icon holds a motion switch, the timer sound, the theme, and
+            your name. Themes: System (follows your device), Light, Dark (side),
+            and three just for fun: Dagobah, Tatooine and Synthwave. The theme
+            is yours alone; other people on the board keep their own. Motion
+            follows your operating system's "reduce motion" setting first; when
+            that is on, the switch is disabled and nothing animates (the tab
+            title shows the timer alert without flashing).
           </p>
           <p className="text-muted-foreground">
             Want to run Holocron on your own Cloudflare account? The{' '}
