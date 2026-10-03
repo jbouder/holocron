@@ -93,6 +93,10 @@ export default {
         if (!isValidCode(code)) {
           return json({ error: 'That is not a board code' }, 400);
         }
+        // Both answer 404 for an unknown code before any per-board check.
+        if (!(await probeAllowed(request, env))) {
+          return json({ error: TOO_MANY_LOOKUPS }, 429);
+        }
         const stub = env.BOARD.getByName(code);
         return handoffMatch[2]
           ? await redeemHandoff(request, stub)
@@ -107,8 +111,9 @@ export default {
         if (!isValidCode(code)) {
           return json({ error: 'That is not a board code' }, 400);
         }
-        // Reads need only the code, so they are what a guesser would use.
-        if (request.method === 'GET' && !(await probeAllowed(request, env))) {
+        // Every method here tells a live board from an unknown code (even
+        // DELETE: 403 against 404), so all of them draw on the probe budget.
+        if (!(await probeAllowed(request, env))) {
           return json({ error: TOO_MANY_LOOKUPS }, 429);
         }
         const stub = env.BOARD.getByName(code);

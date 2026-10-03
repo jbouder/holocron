@@ -1032,6 +1032,50 @@ describe('code probing', () => {
     ).toBe(200);
   });
 
+  it('counts delete and handoff against the same budget', async () => {
+    const created = await createBoard();
+    const ip = '198.51.100.10';
+    const probes = [
+      ['DELETE', `/api/boards/${created.code}`],
+      ['DELETE', '/api/boards/ZZZZZZ'],
+      ['POST', `/api/boards/${created.code}/handoff`],
+      ['POST', '/api/boards/ZZZZZZ/handoff/redeem'],
+    ] as const;
+    const statuses: number[] = [];
+    for (let i = 0; i < 75; i++) {
+      for (const [method, path] of probes) {
+        statuses.push(
+          (
+            await from(ip, path, {
+              method,
+              headers: {
+                authorization: 'Bearer wrong',
+                'content-type': 'application/json',
+              },
+              body: method === 'POST' ? '{}' : undefined,
+            })
+          ).status,
+        );
+      }
+    }
+    // Under the budget the answers still tell live from unknown apart...
+    expect(statuses).not.toContain(429);
+    expect(new Set(statuses)).toContain(403);
+    expect(new Set(statuses)).toContain(404);
+    // ...which is why the 301st, whatever it is, is refused.
+    for (const [method, path] of probes) {
+      const refused = await from(ip, path, {
+        method,
+        headers: { authorization: 'Bearer wrong' },
+      });
+      expect(refused.status).toBe(429);
+    }
+    // The board is still there.
+    expect(
+      (await from('198.51.100.11', `/api/boards/${created.code}`)).status,
+    ).toBe(200);
+  });
+
   it('closes an over-limit socket with 1013 instead of failing the upgrade', async () => {
     const created = await createBoard();
     const ip = '198.51.100.9';
