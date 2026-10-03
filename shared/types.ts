@@ -155,5 +155,5 @@ export const DEFAULT_SETTINGS: Settings = {
   votesPerPerson: 5,
   anonymousAllowed: true,
   blurDuringWrite: true,
-  facilitatorOnly: false,
+  facilitatorOnly: true,
 };

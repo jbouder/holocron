@@ -119,9 +119,9 @@ export function HelpPage() {
             Turnstile) before the Create button works; joining never does.
           </p>
           <p>
-            Templates set the starting columns. Anyone on the board can add,
-            rename and remove columns afterwards (up to {LIMITS.columnsMax}),
-            unless the owner has locked facilitation to themselves.
+            Templates set the starting columns. The owner can add, rename and
+            remove columns afterwards (up to {LIMITS.columnsMax}), and so can
+            everyone else once the owner opens facilitation up.
           </p>
           <ul className="grid gap-2 sm:grid-cols-2">
             {TEMPLATES.map((t) => (
@@ -176,9 +176,9 @@ export function HelpPage() {
             </Term>
           </dl>
           <p>
-            By default anyone can move the phase, set the timer, rename the
-            board and change its columns. The owner can lock all of that to
-            themselves in Settings ("Only I can facilitate").
+            By default only the owner can move the phase, set the timer, rename
+            the board and change its columns. To share that with everyone,
+            the owner turns off "Only I can facilitate" in Settings.
           </p>
         </Section>
 
@@ -247,6 +247,11 @@ export function HelpPage() {
             empty part of a column to move it there, and use "Ungroup" on a
             stacked card to pull it back out. Dragging a card that is in a group
             moves the whole group.
+          </p>
+          <p>
+            You can always move and group your own cards. Arranging other
+            people's cards is for the owner, unless they have turned off "Only I
+            can facilitate".
           </p>
         </Section>
 

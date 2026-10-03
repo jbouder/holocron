@@ -253,21 +253,23 @@ describe('voting', () => {
 });
 
 describe('facilitation', () => {
-  it('lets anyone change phase unless the owner locks it', () => {
-    const open = reduce(fresh(), { type: 'setPhase', phase: 'vote' }, han);
-    expect(open.phase).toBe('vote');
-
-    const locked = reduce(
-      fresh(),
-      { type: 'updateSettings', settings: { facilitatorOnly: true } },
-      owner,
-    );
+  it('locks phase to the owner by default, until the owner opens it', () => {
+    expect(fresh().settings.facilitatorOnly).toBe(true);
     expect(() =>
-      reduce(locked, { type: 'setPhase', phase: 'vote' }, han),
+      reduce(fresh(), { type: 'setPhase', phase: 'vote' }, han),
     ).toThrow(/owner/);
     expect(
-      reduce(locked, { type: 'setPhase', phase: 'vote' }, owner).phase,
+      reduce(fresh(), { type: 'setPhase', phase: 'vote' }, owner).phase,
     ).toBe('vote');
+
+    const open = reduce(
+      fresh(),
+      { type: 'updateSettings', settings: { facilitatorOnly: false } },
+      owner,
+    );
+    expect(reduce(open, { type: 'setPhase', phase: 'vote' }, han).phase).toBe(
+      'vote',
+    );
   });
 
   it('only the owner changes settings', () => {

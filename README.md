@@ -46,9 +46,9 @@ WebSockets, and wipes itself on an alarm.
 - **Export.** Markdown download or copy: columns, grouped cards with votes
   and reactions, comments, action items. Same output from the UI and the
   `/export.md` endpoint.
-- **Facilitation.** By default anyone on the board can move the phase, set
-  the timer, rename the board, and add, rename or remove columns. The owner
-  can lock all of that to themselves ("Only I can facilitate").
+- **Facilitation.** By default only the owner can move the phase, set the
+  timer, rename the board, and add, rename or remove columns. The owner can
+  open all of that up to everyone by turning off "Only I can facilitate".
 - **Ownership.** The creator can change settings (vote budget, anonymity,
   blurring, the facilitation lock), delete any card or comment, and delete
   the board early. Ownership is a token in the creating browser; the server
