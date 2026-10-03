@@ -70,7 +70,8 @@ check the *target* card ([#72](https://github.com/jbouder/holocron/issues/72)).
 
 ### Identity binding
 
-- The first socket for a participant id stores the SHA-256 of its `secret`.
+- The first socket that gets a seat for a participant id stores the
+  SHA-256 of its `secret`.
   A later socket with that id and a different secret is closed with
   `1008 identity` (test: "binds an id to the first secret…").
 - The only other path that takes a participant id is the handoff redeem, and
@@ -156,12 +157,28 @@ platform's WebSocket message limit before `JSON.parse`.
 | Requests by code (meta, export, delete, handoff, socket) | 300/min per IP per Cloudflare location (`PROBE_LIMITER`) | 429; socket closed `1013 limited`, client retries |
 | Ops per socket | 20/s sliding window | `rejected` "Too many changes at once"; sender rolls back |
 | Wrong handoff codes | 5/min per board, 10-minute code | 429; at most ~50 guesses per code against 10⁹ |
-| Seats | 50 per board | close `1008 "This board is full"` |
+| Seats | 50 per board; a full board gives a newcomer the first idle seat | close `1008 full` |
+| Sockets | 5 per participant, 120 per board | close `1008 tabs` / `1008 full` |
 | Document size | bounded by the limits above | each op re-persists the whole document |
 
-**Open:** no cap on sockets per participant or per board, so the per-socket op
-limit multiplies. Seats are never released, so 49 scripted joins lock a board
-for the day ([#71](https://github.com/jbouder/holocron/issues/71)).
+Seats and sockets (fixed in [#71](https://github.com/jbouder/holocron/issues/71)):
+
+- A participant may hold 5 sockets and a board 120, counted before a new
+  socket joins them. Past either, the socket closes with `1008 tabs` or
+  `1008 full`, and the client shows a page instead of retrying.
+- A full board gives a newcomer the first seat (in joining order) whose
+  holder is offline and left nothing public: no signed card or comment,
+  vote, reaction or "done" (`canReleaseSeat`). The release is a server-only
+  `releaseSeat` op with an actor that names no one. Anonymous items are
+  ignored on purpose: if they kept a seat, which seats stay would reveal
+  who wrote them. They stay the author's, because authorship is by id.
+- A participant's secret is bound only once they're seated, so refused
+  joins leave nothing in storage. A released seat's binding goes too,
+  unless it protects anonymous items. The bindings stay one small value
+  instead of growing with every scripted join.
+- Still open: a client that keeps 49 sockets open holds every seat until
+  the wipe. Owner removal is
+  [#80](https://github.com/jbouder/holocron/issues/80).
 
 ### Code enumeration
 
@@ -225,7 +242,7 @@ No action beyond `bun update` when shadcn bumps it.
 
 | # | Severity | Finding |
 | --- | --- | --- |
-| [#71](https://github.com/jbouder/holocron/issues/71) | Medium | Unbounded sockets; seats never released |
+| [#80](https://github.com/jbouder/holocron/issues/80) | Low | Owner can't remove a participant who holds a seat online |
 | [#72](https://github.com/jbouder/holocron/issues/72) | Low | Action items and the `groupCards` target ignore the facilitation lock |
 | [#73](https://github.com/jbouder/holocron/issues/73) | Low | Markdown export doesn't escape user text |
 | [#74](https://github.com/jbouder/holocron/issues/74) | Low | Owner id unbound at create; non-constant-time compares; tokens in socket URL; two handlers skip `expireIfDue()` |

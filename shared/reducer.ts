@@ -359,6 +359,28 @@ function withParticipant(board: Board, actor: Actor): Board {
   };
 }
 
+/**
+ * Whether a seat can go to someone else when the board is full: not the
+ * owner's, and its holder left nothing public behind (no signed card or
+ * comment, vote, reaction or "done"). Anonymous items do not count, or
+ * keeping a seat would give away who wrote them; they stay the author's
+ * either way, because authorship is by id, not by seat. Whether the holder
+ * is online only the server knows; it checks that first.
+ */
+export function canReleaseSeat(board: Board, participantId: string): boolean {
+  const signed = (item: { authorId: string; anonymous: boolean }) =>
+    item.authorId === participantId && !item.anonymous;
+  return (
+    board.ownerId !== participantId &&
+    board.participants.some((p) => p.id === participantId) &&
+    !board.cards.some(signed) &&
+    !board.comments.some(signed) &&
+    !board.votes.some((v) => v.participantId === participantId) &&
+    !board.reactions.some((r) => r.participantId === participantId) &&
+    !board.done.includes(participantId)
+  );
+}
+
 /* ---------- the reducer ---------- */
 
 /** `now` is the server's clock on the echo, so every client agrees on timestamps. */
@@ -852,6 +874,19 @@ export function reduce(
         fail('The new owner has to be on the board');
       }
       return { ...board, ownerId: op.participantId };
+    }
+
+    case 'releaseSeat': {
+      // Only the board object emits this (clients cannot send it at all).
+      if (!canReleaseSeat(board, op.participantId)) {
+        fail('That seat is in use');
+      }
+      return {
+        ...board,
+        participants: board.participants.filter(
+          (p) => p.id !== op.participantId,
+        ),
+      };
     }
 
     case 'renameBoard': {

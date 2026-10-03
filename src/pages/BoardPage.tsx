@@ -99,7 +99,9 @@ export function BoardPage({ code }: { code: string }) {
       status === 'expired' ||
       status === 'deleted' ||
       status === 'missing' ||
-      status === 'refused'
+      status === 'refused' ||
+      status === 'full' ||
+      status === 'tabs'
     ) {
       markGone(status, code);
     }

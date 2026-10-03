@@ -141,6 +141,11 @@ export type OpType = Op['type'];
 export const ServerOpSchema = z.discriminatedUnion('type', [
   /** Ownership moved by a redeemed handoff code; the token rotated with it. */
   z.object({ type: z.literal('setOwner'), participantId: id }),
+  /**
+   * A full board gives an idle seat to someone joining (see
+   * `canReleaseSeat`). Sent with an actor that names no one.
+   */
+  z.object({ type: z.literal('releaseSeat'), participantId: id }),
 ]);
 
 export type ServerOp = z.infer<typeof ServerOpSchema>;

@@ -1100,3 +1100,115 @@ describe('code probing', () => {
     expect(event.reason).toBe('limited');
   });
 });
+
+describe('crowded boards', () => {
+  /** Resolves with the socket's close event. */
+  function closeOf(client: Client): Promise<CloseEvent> {
+    return new Promise((resolve) =>
+      client.ws.addEventListener('close', resolve),
+    );
+  }
+
+  /** Seat everyone up to the limit (the owner is already seated). */
+  async function fill(code: string): Promise<Client[]> {
+    const clients: Client[] = [];
+    for (let i = 1; i < LIMITS.participantsMax; i++) {
+      const client = await join(code, `p${i}`, `P${i}`);
+      await client.next('snapshot');
+      clients.push(client);
+    }
+    return clients;
+  }
+
+  it('turns a newcomer away when every seat is held by someone online', async () => {
+    const created = await createBoard();
+    await fill(created.code);
+    const late = await join(created.code, 'late', 'Late');
+    const closed = await closeOf(late);
+    expect(closed.code).toBe(1008);
+    expect(closed.reason).toBe('full');
+  });
+
+  it('gives a newcomer the first idle seat, never one with something public', async () => {
+    const created = await createBoard();
+    const clients = await fill(created.code);
+    // p1 signs a card, p2 writes only an anonymous one; then all but the
+    // last leave.
+    clients[0].send({
+      type: 'addCard',
+      id: 'signed',
+      columnId: 'col-1',
+      text: 'Mine',
+      anonymous: false,
+    });
+    clients[1].send({
+      type: 'addCard',
+      id: 'anon',
+      columnId: 'col-1',
+      text: 'Secret',
+      anonymous: true,
+    });
+    const watcher = clients[clients.length - 1];
+    await vi.waitFor(() =>
+      expect(
+        watcher.messages.filter(
+          (m) => m.type === 'op' && m.op.type === 'addCard',
+        ),
+      ).toHaveLength(2),
+    );
+    for (const client of clients.slice(0, -1)) {
+      const closed = closeOf(client);
+      client.ws.close(1000, 'leaving');
+      await closed;
+    }
+
+    const seen = watcher.messages.length;
+    const late = await join(created.code, 'late', 'Late');
+    const snapshot = await late.next('snapshot');
+    const ids = snapshot.board.participants.map((p) => p.id);
+    expect(ids).toContain('late');
+    expect(ids).toContain('p1');
+    // p2's anonymous card does not keep the seat: keeping it would say
+    // who wrote it.
+    expect(ids).not.toContain('p2');
+    const release = await watcher.next('op', seen);
+    expect(release.op).toEqual({ type: 'releaseSeat', participantId: 'p2' });
+    expect(release.actor).toEqual({ id: '', name: '' });
+
+    // p2 still owns the anonymous card when they come back (a seat frees
+    // up once someone idle can go).
+    const leaving = closeOf(late);
+    late.ws.close(1000, 'leaving');
+    await leaving;
+    const back = await join(created.code, 'p2', 'P2');
+    const mine = await back.next('snapshot');
+    expect(mine.you.anonymousCardIds).toEqual(['anon']);
+  });
+
+  it('caps the tabs one participant can open', async () => {
+    const created = await createBoard();
+    for (let i = 0; i < LIMITS.socketsPerParticipant; i++) {
+      const tab = await join(created.code, 'han', 'Han');
+      await tab.next('snapshot');
+    }
+    const extra = await join(created.code, 'han', 'Han');
+    const closed = await closeOf(extra);
+    expect(closed.code).toBe(1008);
+    expect(closed.reason).toBe('tabs');
+  });
+
+  it('binds nothing for a join it turns away', async () => {
+    const created = await createBoard();
+    const clients = await fill(created.code);
+    const refused = await join(created.code, 'late', 'Late', undefined, 'one');
+    expect((await closeOf(refused)).reason).toBe('full');
+    // A seat frees up; the same id from another browser is not an impostor,
+    // because the first one never got bound.
+    const leaving = closeOf(clients[0]);
+    clients[0].ws.close(1000, 'leaving');
+    await leaving;
+    const other = await join(created.code, 'late', 'Late', undefined, 'two');
+    const snapshot = await other.next('snapshot');
+    expect(snapshot.you.id).toBe('late');
+  });
+});

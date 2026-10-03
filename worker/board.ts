@@ -15,6 +15,7 @@ import {
 import {
   anonymousIdsFor,
   blursCards,
+  canReleaseSeat,
   createBoard,
   OpError,
   redactAnonymous,
@@ -384,21 +385,38 @@ export class BoardObject extends DurableObject<Bindings> {
       this.ownerHash !== null &&
       (await sha256(token)) === this.ownerHash;
 
+    // Counted before this socket joins them.
+    const open = this.ctx
+      .getWebSockets()
+      .map((ws) => ws.deserializeAttachment() as Attachment | null);
+    const crowded =
+      open.length >= LIMITS.socketsMax
+        ? 'full'
+        : open.filter((a) => a?.id === id).length >=
+            LIMITS.socketsPerParticipant
+          ? 'tabs'
+          : null;
+
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
     const attachment: Attachment = { id, name, isOwner };
     server.serializeAttachment(attachment);
     this.ctx.acceptWebSocket(server);
 
-    // Bind the id to this browser's secret, or refuse an impostor. The
+    // An id already bound to another browser's secret is an impostor. The
     // close reason is what the client keys on; it never retries this.
     const secretHash = await sha256(secret);
     const bound = this.secrets[id];
-    if (bound === undefined) {
-      this.secrets[id] = secretHash;
-      await this.ctx.storage.put(SECRETS_KEY, this.secrets);
-    } else if (bound !== secretHash) {
+    if (bound !== undefined && bound !== secretHash) {
       server.close(1008, 'identity');
+      return new Response(null, { status: 101, webSocket: client });
+    }
+    // From here to the binding nothing awaits, so two first sockets for one
+    // id cannot both bind.
+
+    // The close reasons are what the client keys on (it stops retrying).
+    if (crowded) {
+      server.close(1008, crowded);
       return new Response(null, { status: 101, webSocket: client });
     }
 
@@ -406,6 +424,30 @@ export class BoardObject extends DurableObject<Bindings> {
     // reducer persists it and tells everyone else.
     const actor = this.actorFor(attachment);
     const known = this.board.participants.find((p) => p.id === id);
+    let secretsChanged = false;
+    if (!known && this.board.participants.length >= LIMITS.participantsMax) {
+      const idle = this.idleSeat();
+      if (!idle) {
+        server.close(1008, 'full');
+        return new Response(null, { status: 101, webSocket: client });
+      }
+      this.apply(
+        { type: 'releaseSeat', participantId: idle },
+        { id: '', name: '', isOwner: false },
+        `release-${crypto.randomUUID()}`,
+        [server],
+      );
+      // A binding only protects anonymous items; without any, let it go so
+      // seats churning through a full board do not pile bindings up.
+      const theirs = anonymousIdsFor(this.board, idle);
+      if (
+        theirs.anonymousCardIds.length === 0 &&
+        theirs.anonymousCommentIds.length === 0
+      ) {
+        delete this.secrets[idle];
+        secretsChanged = true;
+      }
+    }
     if (!known || known.name !== name) {
       try {
         this.apply({ type: 'setName', name }, actor, `join-${id}`, [server]);
@@ -416,6 +458,15 @@ export class BoardObject extends DurableObject<Bindings> {
         }
         throw error;
       }
+    }
+
+    // Bound only once seated, so refused joins leave nothing behind.
+    if (bound === undefined) {
+      this.secrets[id] = secretHash;
+      secretsChanged = true;
+    }
+    if (secretsChanged) {
+      await this.ctx.storage.put(SECRETS_KEY, this.secrets);
     }
 
     this.sendSnapshot(server, actor);
@@ -603,6 +654,23 @@ export class BoardObject extends DurableObject<Bindings> {
       default:
         return null;
     }
+  }
+
+  /**
+   * The first seat, in joining order, whose holder is offline and left
+   * nothing public behind (`canReleaseSeat`), or null.
+   */
+  private idleSeat(): string | null {
+    if (!this.board) {
+      return null;
+    }
+    const online = this.onlineIds();
+    const board = this.board;
+    return (
+      board.participants.find(
+        (p) => !online.has(p.id) && canReleaseSeat(board, p.id),
+      )?.id ?? null
+    );
   }
 
   private actorFor(attachment: Attachment): Actor {

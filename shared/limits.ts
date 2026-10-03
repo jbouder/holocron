@@ -15,6 +15,10 @@ export const LIMITS = {
   commentsPerCardMax: 20,
   commentsMax: 500,
   participantsMax: 50,
+  /** Open sockets (tabs) one participant may hold on a board. */
+  socketsPerParticipant: 5,
+  /** Open sockets on a board, across everyone. */
+  socketsMax: 120,
   votesPerPersonMin: 1,
   votesPerPersonMax: 20,
   timerMinMs: 60_000,
