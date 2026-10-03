@@ -1,0 +1,118 @@
+name: Preview
+
+# Each pull request from a branch in this repository gets its own Worker,
+# `holocron-pr-<number>`, on workers.dev. Cloudflare's version preview URLs
+# are not generated for Workers that implement a Durable Object, so this is a
+# separate Worker instead: its own Durable Object namespace, so preview
+# boards never touch production's, and the same daily wipe.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+permissions:
+  contents: read
+
+# A new push cancels that PR's in-flight preview deploy. Closing the PR
+# waits for it instead, so the delete always runs last.
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: ${{ github.event.action != 'closed' }}
+
+env:
+  WORKER_NAME: holocron-pr-${{ github.event.pull_request.number }}
+  # Marks the one comment this workflow keeps up to date on the PR.
+  MARKER: '<!-- holocron-preview -->'
+  PR_NUMBER: ${{ github.event.pull_request.number }}
+
+jobs:
+  # Same shape as deploy.yml: read the secret once, skip the rest without
+  # it. Fork PRs never see repository secrets, so they skip here too, and so
+  # do Dependabot PRs (they only get Dependabot secrets).
+  gate:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    outputs:
+      enabled: ${{ steps.secret.outputs.enabled }}
+    steps:
+      - id: secret
+        env:
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -n "$CF_API_TOKEN" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "No CLOUDFLARE_API_TOKEN secret; skipping preview. See docs/self-hosting.md." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  deploy:
+    needs: gate
+    if: needs.gate.outputs.enabled == 'true' && github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      # `wrangler deploy` reads the config the Vite plugin wrote into dist/.
+      # Rename the Worker, move board creation to its own rate-limit
+      # namespace (namespaces are account-wide, so 1001 would share
+      # production's counters) and keep Turnstile off.
+      - name: Point the build at the preview Worker
+        run: |
+          config=dist/holocron/wrangler.json
+          jq --arg name "$WORKER_NAME" '
+            .name = $name
+            | .ratelimits |= map(.namespace_id = "1002")
+            | .vars.TURNSTILE_SITE_KEY = ""
+          ' "$config" > "$config.tmp"
+          mv "$config.tmp" "$config"
+      - id: wrangler
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
+      - name: Comment the preview URL
+        env:
+          GH_TOKEN: ${{ github.token }}
+          URL: ${{ steps.wrangler.outputs.deployment-url }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          body="$MARKER
+          **Preview:** $URL
+
+          Built from $SHA. Boards here are separate from production and are wiped on the same schedule. The Worker is deleted when this PR closes."
+          bash .github/scripts/preview-comment.sh "$body"
+
+  delete:
+    needs: gate
+    if: needs.gate.outputs.enabled == 'true' && github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      # `--force` because the Worker owns a Durable Object namespace.
+      - uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: delete ${{ env.WORKER_NAME }} --force
+      - name: Update the preview comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          bash .github/scripts/preview-comment.sh "$MARKER
+          **Preview:** deleted when this PR closed."

@@ -64,7 +64,7 @@ WebSockets work on custom domains without extra configuration.
 
 ## Deploy from GitHub Actions
 
-Two workflows:
+Three workflows:
 
 - `.github/workflows/ci.yml` runs the `check` job (Biome, `tsc -b`,
   `vite build`, Vitest) on every pull request and every push to `main`. It
@@ -74,8 +74,10 @@ Two workflows:
   Run workflow on `main`) to re-deploy the current `main` without re-running
   CI, for example after rotating the Cloudflare token or changing a var in
   `wrangler.jsonc`.
+- `.github/workflows/preview.yml` deploys each pull request from a branch in
+  this repository as its own Worker (see [Pull request previews](#pull-request-previews)).
 
-The deploy needs two repository secrets:
+Deploy and Preview need two repository secrets:
 
 | Secret | Where to get it |
 |---|---|
@@ -83,19 +85,44 @@ The deploy needs two repository secrets:
 | `CLOUDFLARE_ACCOUNT_ID` | Dashboard → Workers & Pages → Overview (right-hand column) |
 
 Add them under Settings → Secrets and variables → Actions as repository
-secrets (the deploy workflow checks for the token before it enters the
+secrets (the workflows check for the token before it enters the
 environment, so environment-scoped secrets are not seen). Without
-`CLOUDFLARE_API_TOKEN` the `deploy` job is skipped and the run stays green, so
-a fork gets the checks only. The deploy job uses a `production` environment;
+`CLOUDFLARE_API_TOKEN` the deploy and preview jobs are skipped and the runs
+stay green, so a fork gets the checks only. The deploy job uses a `production` environment;
 create it (Settings → Environments) if you want required reviewers before a
 deploy. Deploys queue rather than cancel one another.
 
-Pull requests never deploy and never see the Cloudflare secrets, including
-PRs from forks. To block merging until checks pass, add a branch protection
-rule (or ruleset) on `main` under Settings → Branches with "Require status
-checks to pass" and select `check` (from CI). Do not add the Deploy jobs: they
-run only after merge, so a PR would wait on them forever. GitHub only offers
-`check` once the job has run at least once.
+Pull requests never deploy to production. PRs from forks never see the
+Cloudflare secrets and get no preview. To block merging until checks pass, add
+a branch protection rule (or ruleset) on `main` under Settings → Branches with
+"Require status checks to pass" and select `check` (from CI). Do not add the
+Deploy or Preview jobs: Deploy runs only after merge, and Preview skips for
+forks and when the secrets are missing, so a PR could wait on them forever.
+GitHub only offers `check` once the job has run at least once.
+
+### Pull request previews
+
+Cloudflare's version preview URLs are not generated for Workers that
+implement a Durable Object, so each pull request gets a whole Worker instead,
+named `holocron-pr-<number>` on your `workers.dev` subdomain:
+
+- Opening, pushing to or reopening the PR builds it and deploys that Worker,
+  then posts the URL as one PR comment that later pushes update.
+- Closing or merging the PR deletes the Worker (`wrangler delete --force`) and
+  says so in the comment.
+- A preview has its own Durable Object namespace, so its boards are separate
+  from production's and are wiped on the same schedule. Board creation uses
+  rate-limit namespace `1002` instead of production's `1001` (namespaces are
+  account-wide), and Turnstile is always off.
+
+Previews run only for PRs from branches in this repository, using the same
+`CLOUDFLARE_API_TOKEN`; the "Edit Cloudflare Workers" template already allows
+creating and deleting Workers. Anyone who can push a branch can therefore run
+code with that token, so keep push access to people you would trust with a
+deploy. To turn previews off, disable the workflow (Actions → Preview → ⋯ →
+Disable workflow) or delete `.github/workflows/preview.yml`. If a preview
+Worker is ever left behind, delete it with
+`npx wrangler delete holocron-pr-<number>`.
 
 ### Dependency updates
 
@@ -103,7 +130,8 @@ run only after merge, so a PR would wait on them forever. GitHub only offers
 packages (through `package.json` and `bun.lock`) and the GitHub Actions the
 workflows use. Minor and patch bumps are grouped into one PR per ecosystem;
 each major version gets its own. They are ordinary PRs, so they run `check`
-and never deploy. Nothing merges automatically.
+and never deploy (Dependabot runs don't see repository secrets, so they get
+no preview either). Nothing merges automatically.
 
 On a fork, Dependabot version updates follow this file once you enable them
 under Settings → Code security. Turn on Dependabot alerts and security
