@@ -14,14 +14,55 @@ import type { Board, Card } from '#shared/types';
  * duration of one request.
  */
 
-export const ANALYSIS_MODEL = {
-  id: 'Qwen3-1.7B-q4f16_1-MLC',
-  name: 'Qwen3 1.7B',
+export interface AnalysisModel {
+  /** A `model_id` from WebLLM's prebuilt list. */
+  id: string;
+  name: string;
   /** Weights plus runtime, as the owner sees it before agreeing. */
-  downloadLabel: 'about 1 GB',
-  /** Where the weights come from; the board is never sent there. */
-  source: 'Hugging Face',
-} as const;
+  downloadLabel: string;
+  /** GPU memory it needs once loaded. */
+  vramLabel: string;
+  /** Who it suits, in one line. */
+  note: string;
+}
+
+/** Where the weights come from; the board is never sent there. */
+export const MODEL_SOURCE = 'Hugging Face';
+
+/**
+ * The models the owner may pick from, smallest first. All are 4-bit Qwen3
+ * builds; the sizes are WebLLM's own figures, rounded.
+ */
+export const ANALYSIS_MODELS: readonly AnalysisModel[] = [
+  {
+    id: 'Qwen3-1.7B-q4f16_1-MLC',
+    name: 'Qwen3 1.7B',
+    downloadLabel: 'about 1 GB',
+    vramLabel: '2 GB',
+    note: 'Quick, and good enough for most boards. Runs on most laptops.',
+  },
+  {
+    id: 'Qwen3-4B-q4f16_1-MLC',
+    name: 'Qwen3 4B',
+    downloadLabel: 'about 2.4 GB',
+    vramLabel: '3.5 GB',
+    note: 'Sharper themes and action items. Slower on integrated graphics.',
+  },
+  {
+    id: 'Qwen3-8B-q4f16_1-MLC',
+    name: 'Qwen3 8B',
+    downloadLabel: 'about 4.6 GB',
+    vramLabel: '6 GB',
+    note: 'Needs a discrete GPU, or a Mac with 16 GB of memory or more.',
+  },
+];
+
+export const DEFAULT_MODEL = ANALYSIS_MODELS[0];
+
+/** The model for a stored choice; the default when it is unknown or stale. */
+export function findModel(id: string | null | undefined): AnalysisModel {
+  return ANALYSIS_MODELS.find((m) => m.id === id) ?? DEFAULT_MODEL;
+}
 
 export type AnalysisAction = 'themes' | 'groupings' | 'actions';
 

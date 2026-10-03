@@ -4,7 +4,7 @@ import { LIMITS } from '#shared/limits';
 import { TEMPLATES } from '#shared/templates';
 import { DEFAULT_SETTINGS, REACTIONS } from '#shared/types';
 import { Badge } from '@/components/ui/badge';
-import { ANALYSIS_MODEL } from '@/lib/analysis';
+import { ANALYSIS_MODELS, MODEL_SOURCE } from '@/lib/analysis';
 import { linkProps, navigate, useRoute } from '@/lib/router';
 import { cn } from '@/lib/utils';
 import { useConfig } from '@/pages/HomePage';
@@ -349,11 +349,19 @@ export function HelpPage() {
           <p>
             The model runs in your browser, on your graphics card, so no card
             text goes to a server or an AI service. The first time, it asks
-            before downloading the model ({ANALYSIS_MODEL.name},{' '}
-            {ANALYSIS_MODEL.downloadLabel}, from {ANALYSIS_MODEL.source}), which
-            then stays cached in this browser for next time. It needs WebGPU,
-            which recent Chrome, Edge, Safari and Firefox have on most hardware;
-            the panel says so if yours does not.
+            before downloading anything. Pick a model to suit your machine:{' '}
+            {ANALYSIS_MODELS.map((m, i) => (
+              <span key={m.id}>
+                {i > 0 && (i === ANALYSIS_MODELS.length - 1 ? ' or ' : ', ')}
+                {m.name} ({m.downloadLabel}
+                {i === 0 ? ', the default' : ''})
+              </span>
+            ))}
+            . Bigger is sharper but needs more graphics memory. The download
+            comes from {MODEL_SOURCE} and stays cached in this browser for next
+            time; your pick is remembered here too. It needs WebGPU, which
+            recent Chrome, Edge, Safari and Firefox have on most hardware; the
+            panel says so if yours does not.
           </p>
           <p>
             Everything in the panel is a suggestion and can be wrong. Nothing

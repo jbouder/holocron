@@ -34,10 +34,12 @@ anonymous: everyone can see who voted or reacted.
 
 **In the owner's browser, only if they enable Analysis:**
 
-- the language model's weights and runtime (about 1 GB, in Cache Storage
-  under `webllm/*`), downloaded from Hugging Face and the mlc-ai GitHub
-  releases the first time the owner agrees to it, and kept so the next retro
-  does not download them again. Clearing site data removes them.
+- the language model's weights and runtime (about 1 GB for the default
+  Qwen3 1.7B, up to about 4.6 GB for Qwen3 8B, in Cache Storage under
+  `webllm/*`), downloaded from Hugging Face and the mlc-ai GitHub releases
+  the first time the owner agrees to it, and kept so the next retro does not
+  download them again. Clearing site data removes them.
+- which model the owner picked (`localStorage` key `holocron:analysis-model`).
 
 Nothing else. No cookies, no accounts, no analytics, and no third-party
 scripts unless the deployment turned on Turnstile (below).

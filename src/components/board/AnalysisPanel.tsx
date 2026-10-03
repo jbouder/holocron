@@ -27,11 +27,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { type Analysis, type Run, useAnalysis } from '@/hooks/useAnalysis';
 import {
   type ActionDraft,
-  ANALYSIS_MODEL,
+  ANALYSIS_MODELS,
   type AnalysisAction,
   type Grouping,
+  MODEL_SOURCE,
   type Theme,
 } from '@/lib/analysis';
+import { cn } from '@/lib/utils';
 import { useMotion } from '@/providers/MotionProvider';
 import { revealCard } from './action-link';
 
@@ -198,8 +200,21 @@ export function AnalysisPanel({
         </div>
 
         <p className="border-t px-4 py-2 text-[0.7rem] text-muted-foreground">
-          Generated locally by {ANALYSIS_MODEL.name}. It can be wrong; read
+          Generated locally by {analysis.choice.name}. It can be wrong; read
           before you accept.
+          {analysis.model.kind === 'ready' && (
+            <>
+              {' '}
+              <button
+                type="button"
+                className="press rounded-sm underline underline-offset-2 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50"
+                disabled={analysis.busy}
+                onClick={analysis.unload}
+              >
+                Change model
+              </button>
+            </>
+          )}
         </p>
       </SheetContent>
     </Sheet>
@@ -258,28 +273,62 @@ function ModelGate({
     case 'consent':
       return (
         <div className="grid gap-4 p-4 text-sm">
-          <div className="grid gap-2 rounded-md border bg-muted/40 p-3">
-            <p className="font-medium text-foreground">{ANALYSIS_MODEL.name}</p>
-            <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs text-muted-foreground">
-              <dt>Download</dt>
-              <dd>
-                {model.cached
-                  ? 'Already in this browser’s cache.'
-                  : `${ANALYSIS_MODEL.downloadLabel}, once. It stays cached in this browser.`}
-              </dd>
-              <dt>From</dt>
-              <dd>
-                {ANALYSIS_MODEL.source}. It sees the download, never the board.
-              </dd>
-              <dt>Runs on</dt>
-              <dd>
-                Your GPU, in this tab. Nobody else on the board is affected.
-              </dd>
-            </dl>
-          </div>
+          <fieldset className="grid gap-2">
+            <legend className="sr-only">Model</legend>
+            {ANALYSIS_MODELS.map((m) => {
+              const selected = m.id === analysis.choice.id;
+              return (
+                <label
+                  key={m.id}
+                  className={cn(
+                    'press grid cursor-pointer gap-1 rounded-md border p-3 outline-ring/50 transition-colors has-focus-visible:outline-2',
+                    selected
+                      ? 'border-foreground bg-muted/40'
+                      : 'hover:bg-muted/40',
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name="analysis-model"
+                    value={m.id}
+                    checked={selected}
+                    onChange={() => analysis.choose(m.id)}
+                    className="sr-only"
+                  />
+                  <span className="flex items-baseline justify-between gap-2">
+                    <span className="font-medium text-foreground">
+                      {m.name}
+                    </span>
+                    <span className="text-xs text-muted-foreground tabular">
+                      {m.downloadLabel} · {m.vramLabel} of GPU memory
+                    </span>
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {m.note}
+                  </span>
+                </label>
+              );
+            })}
+          </fieldset>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs text-muted-foreground">
+            <dt>Download</dt>
+            <dd>
+              {model.cached
+                ? 'Already in this browser’s cache.'
+                : `${analysis.choice.downloadLabel}, once. It stays cached in this browser.`}
+            </dd>
+            <dt>From</dt>
+            <dd>{MODEL_SOURCE}. It sees the download, never the board.</dd>
+            <dt>Runs on</dt>
+            <dd>
+              Your GPU, in this tab. Nobody else on the board is affected.
+            </dd>
+          </dl>
           <Button className="press" onClick={analysis.load}>
             <DownloadSimpleIcon data-icon="inline-start" />
-            {model.cached ? 'Load the model' : 'Download and enable'}
+            {model.cached
+              ? `Load ${analysis.choice.name}`
+              : `Download ${analysis.choice.name} and enable`}
           </Button>
         </div>
       );
