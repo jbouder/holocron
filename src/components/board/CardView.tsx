@@ -17,6 +17,7 @@ import {
 import { LIMITS } from '#shared/limits';
 import type { Op, You } from '#shared/protocol';
 import {
+  canArrange,
   isCardAuthor,
   isCardHidden,
   isCardSealed,
@@ -82,7 +83,21 @@ export function CardView({
   const mine = isCardAuthor(card, you);
   // The menu: delete (author or owner) and ungroup. Editing is author-only.
   const canEdit = mine || you.isOwner;
-  const canArrange = canEdit || !board.settings.facilitatorOnly || you.isOwner;
+  // Asked of the reducer, which counts every card the op would change: a
+  // drag takes the whole group along, grouping onto this card changes it,
+  // and ungrouping the second-to-last member dissolves the group.
+  const canDrag = canArrange(
+    board,
+    { type: 'moveCard', id: card.id, columnId: card.columnId },
+    you,
+  );
+  const canGroupOnto =
+    canEdit || !board.settings.facilitatorOnly || you.isOwner;
+  const canUngroup = canArrange(
+    board,
+    { type: 'ungroupCard', id: card.id },
+    you,
+  );
   const blurred = isCardHidden(board, card, you);
   // Reactions, comments and action item links, which would name whoever
   // added them: open to anyone who can read the card, except on an anonymous
@@ -152,19 +167,19 @@ export function CardView({
       data-blurred={blurred}
       // Dropping a card here regroups this one too; not offered when you
       // cannot arrange it (useCardDrag skips it).
-      data-no-group={canArrange ? undefined : ''}
+      data-no-group={canGroupOnto ? undefined : ''}
       className={cn(
         'retro-card drop-target group relative rounded-lg border bg-card p-3 text-sm text-card-foreground shadow-xs',
         // The drag handle lives in the left gutter, so widen it rather than
         // push the title out of line with the author row.
-        canArrange && 'pl-7',
+        canDrag && 'pl-7',
         mine && 'border-foreground/25',
       )}
       aria-label={
         blurred ? 'A card, hidden until the Write phase ends' : undefined
       }
     >
-      {canArrange && (
+      {canDrag && (
         <button
           type="button"
           aria-label="Drag to group or move"
@@ -250,7 +265,7 @@ export function CardView({
                   Add action item
                 </DropdownMenuItem>
               )}
-              {card.groupId !== null && canArrange && (
+              {card.groupId !== null && canUngroup && (
                 <DropdownMenuItem
                   onClick={() => dispatch({ type: 'ungroupCard', id: card.id })}
                 >
@@ -273,7 +288,7 @@ export function CardView({
         {!canEdit &&
           !canAddAction &&
           card.groupId !== null &&
-          canArrange &&
+          canUngroup &&
           !editing && (
             <Tooltip>
               <TooltipTrigger

@@ -14,6 +14,7 @@ import {
 } from '#shared/protocol';
 import {
   anonymousIdsFor,
+  arrangedCards,
   blursCards,
   canReleaseSeat,
   createBoard,
@@ -651,21 +652,21 @@ export class BoardObject extends DurableObject<Bindings> {
       case 'addCard':
         return op.anonymous ? { anonymousCardIds: [op.id] } : null;
       case 'editCard':
-      case 'deleteCard':
-      case 'moveCard':
-      case 'ungroupCard': {
+      case 'deleteCard': {
         const card = board.cards.find((c) => c.id === op.id);
         return card?.anonymous && card.authorId === actor.id
           ? { anonymousCardIds: [card.id] }
           : null;
       }
-      case 'groupCards': {
-        // Both cards must be the actor's under the lock, so naming the actor
-        // when either is their anonymous card would give its author away.
-        const mine = [op.id, op.targetId].filter((id) => {
-          const card = board.cards.find((c) => c.id === id);
-          return card?.anonymous === true && card.authorId === actor.id;
-        });
+      case 'moveCard':
+      case 'groupCards':
+      case 'ungroupCard': {
+        // Under the lock every card the op changes must be the actor's, so
+        // naming the actor when any is their anonymous card (a group member
+        // or a dissolved group's last card included) would give it away.
+        const mine = arrangedCards(board, op)
+          .filter((c) => c.anonymous && c.authorId === actor.id)
+          .map((c) => c.id);
         return mine.length > 0 ? { anonymousCardIds: mine } : null;
       }
       case 'addComment':
