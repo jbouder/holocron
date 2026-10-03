@@ -53,9 +53,10 @@ export function createBoard(input: CreateBoardInput): Board {
     ownerId: input.ownerId,
     settings: { ...DEFAULT_SETTINGS, ...input.settings },
     timer: null,
-    columns: template.columns.map((title, i) => ({
+    columns: template.columns.map((c, i) => ({
       id: `col-${i + 1}`,
-      title,
+      title: c.title,
+      prompt: c.prompt,
       position: i,
     })),
     cards: [],
@@ -64,6 +65,7 @@ export function createBoard(input: CreateBoardInput): Board {
     comments: [],
     actionItems: [],
     participants: [{ id: input.ownerId, name: input.ownerName, online: false }],
+    done: [],
   };
 }
 
@@ -76,6 +78,8 @@ export function upgradeBoard(board: Board): Board {
     ...board,
     reactions: board.reactions ?? [],
     comments: board.comments ?? [],
+    columns: board.columns.map((c) => ({ ...c, prompt: c.prompt ?? '' })),
+    done: board.done ?? [],
   };
 }
 
@@ -187,6 +191,14 @@ export function votesUsed(board: Board, participantId: string): number {
     }
   }
   return used;
+}
+
+/** Votes a participant can still spend. Says nothing about where they went. */
+export function votesLeft(board: Board, participantId: string): number {
+  return Math.max(
+    0,
+    board.settings.votesPerPerson - votesUsed(board, participantId),
+  );
 }
 
 export function votesFor(board: Board, cardId: string): number {
@@ -560,7 +572,11 @@ export function reduce(
 
     case 'setPhase': {
       requireFacilitator(board, actor);
-      return { ...board, phase: op.phase };
+      if (op.phase === board.phase) {
+        return board;
+      }
+      // "Done" means done with this phase; a new phase starts everyone over.
+      return { ...board, phase: op.phase, done: [] };
     }
 
     case 'setTimer': {
@@ -588,7 +604,12 @@ export function reduce(
         ...board,
         columns: [
           ...board.columns,
-          { id: op.id, title: op.title, position: board.columns.length },
+          {
+            id: op.id,
+            title: op.title,
+            prompt: '',
+            position: board.columns.length,
+          },
         ],
       };
     }
@@ -602,6 +623,21 @@ export function reduce(
         ...board,
         columns: board.columns.map((c) =>
           c.id === op.id ? { ...c, title: op.title } : c,
+        ),
+      };
+    }
+
+    case 'setColumnPrompt': {
+      requireFacilitator(board, actor);
+      if (!board.columns.some((c) => c.id === op.id)) {
+        fail('That column is gone');
+      }
+      // One line: it renders under the title and as one line of the export.
+      const prompt = op.prompt.replace(/\s+/g, ' ');
+      return {
+        ...board,
+        columns: board.columns.map((c) =>
+          c.id === op.id ? { ...c, prompt } : c,
         ),
       };
     }
@@ -686,6 +722,24 @@ export function reduce(
     case 'renameBoard': {
       requireFacilitator(board, actor);
       return { ...board, title: op.title };
+    }
+
+    case 'setDone': {
+      if (actor.id === '') {
+        return board; // a redacted echo names no one to mark
+      }
+      if (board.phase !== 'write') {
+        fail('You can only mark yourself done while writing');
+      }
+      if (op.done === board.done.includes(actor.id)) {
+        return board;
+      }
+      return {
+        ...board,
+        done: op.done
+          ? [...board.done, actor.id]
+          : board.done.filter((id) => id !== actor.id),
+      };
     }
 
     case 'setName': {

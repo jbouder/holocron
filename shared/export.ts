@@ -20,6 +20,10 @@ export function boardToMarkdown(board: Board, now = Date.now()): string {
   )) {
     lines.push(`## ${column.title}`);
     lines.push('');
+    if (column.prompt) {
+      lines.push(`_${column.prompt}_`);
+      lines.push('');
+    }
     const cards = cardsInColumn(board, column.id);
     if (cards.length === 0) {
       lines.push('_No cards._');

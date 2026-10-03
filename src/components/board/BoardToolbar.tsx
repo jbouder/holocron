@@ -1,5 +1,7 @@
 import {
+  CheckCircleIcon,
   CheckSquareIcon,
+  CircleIcon,
   DotsThreeIcon,
   DownloadSimpleIcon,
   GearSixIcon,
@@ -61,6 +63,7 @@ export function BoardToolbar({
   const remainingVotes =
     board.settings.votesPerPerson - votesUsed(board, you.id);
   const openActions = board.actionItems.filter((a) => !a.done).length;
+  const imDone = board.done.includes(you.id);
 
   // Entering Discuss opens the action items once, on wide screens.
   const lastPhase = useRef(board.phase);
@@ -114,11 +117,7 @@ export function BoardToolbar({
           </Tooltip>
 
           <div className="ml-auto flex items-center gap-2">
-            <Presence
-              participants={board.participants}
-              youId={you.id}
-              ownerId={board.ownerId}
-            />
+            <Presence board={board} youId={you.id} />
             <Button
               variant="outline"
               size="sm"
@@ -183,6 +182,22 @@ export function BoardToolbar({
             onChange={(phase) => dispatch({ type: 'setPhase', phase })}
           />
           <div className="ml-auto flex items-center gap-2">
+            {board.phase === 'write' && (
+              <Button
+                variant={imDone ? 'secondary' : 'outline'}
+                size="sm"
+                className="press"
+                aria-pressed={imDone}
+                onClick={() => dispatch({ type: 'setDone', done: !imDone })}
+              >
+                {imDone ? (
+                  <CheckCircleIcon weight="fill" data-icon="inline-start" />
+                ) : (
+                  <CircleIcon data-icon="inline-start" />
+                )}
+                {imDone ? 'Done' : "I'm done"}
+              </Button>
+            )}
             {board.phase !== 'write' && (
               <Badge
                 variant={remainingVotes > 0 ? 'secondary' : 'outline'}
