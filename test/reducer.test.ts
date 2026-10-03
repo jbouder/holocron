@@ -1253,3 +1253,149 @@ describe('ownership handoff', () => {
     expect(message.success).toBe(false);
   });
 });
+
+/**
+ * One negative case per permission rule (docs/security.md). The rules in
+ * other blocks are tested where they live; this pins the rest, so an op
+ * that loses its check fails here.
+ */
+describe('permission rules', () => {
+  /** Han's two cards grouped by the owner, and one of Luke's. */
+  function seeded(): Board {
+    return apply(fresh(), [
+      [add('h1', 'Han one'), han],
+      [add('h2', 'Han two'), han],
+      [add('l1', 'Luke one'), luke],
+      [{ type: 'groupCards', id: 'h1', targetId: 'h2', groupId: 'g' }, owner],
+      [
+        {
+          type: 'addComment',
+          id: 'hc',
+          cardId: 'h2',
+          text: 'Han says',
+          anonymous: false,
+        },
+        han,
+      ],
+    ]);
+  }
+
+  const facilitatorOps: Op[] = [
+    { type: 'setPhase', phase: 'vote' },
+    { type: 'setTimer', durationMs: LIMITS.timerMinMs, endsAt: 0 },
+    { type: 'clearTimer' },
+    { type: 'addColumn', id: 'col-x', title: 'Kudos' },
+    { type: 'renameColumn', id: col, title: 'Mine now' },
+    { type: 'setColumnPrompt', id: col, prompt: 'Mine now' },
+    { type: 'deleteColumn', id: col },
+    { type: 'renameBoard', title: 'Mine now' },
+  ];
+
+  it.each(facilitatorOps.map((op) => [op.type, op] as const))(
+    '%s is owner-only while facilitation is locked',
+    (_, op) => {
+      const board = seeded();
+      expect(board.settings.facilitatorOnly).toBe(true);
+      expect(() => reduce(board, op, luke)).toThrow(/owner/);
+      expect(() => reduce(board, op, owner)).not.toThrow();
+      const open = reduce(
+        board,
+        { type: 'updateSettings', settings: { facilitatorOnly: false } },
+        owner,
+      );
+      expect(() => reduce(open, op, luke)).not.toThrow();
+    },
+  );
+
+  it('keeps every setting owner-only, even with facilitation open', () => {
+    const open = reduce(
+      seeded(),
+      { type: 'updateSettings', settings: { facilitatorOnly: false } },
+      owner,
+    );
+    for (const settings of [
+      { votesPerPerson: 20 },
+      { anonymousAllowed: false },
+      { blurDuringWrite: false },
+      { facilitatorOnly: true },
+    ]) {
+      expect(() =>
+        reduce(open, { type: 'updateSettings', settings }, luke),
+      ).toThrow(/owner/);
+    }
+  });
+
+  it('locks moving, grouping and ungrouping other people’s cards', () => {
+    const board = seeded();
+    const refused: Op[] = [
+      { type: 'moveCard', id: 'h1', columnId: 'col-2' },
+      { type: 'groupCards', id: 'h1', targetId: 'l1', groupId: 'g2' },
+      { type: 'ungroupCard', id: 'h1' },
+    ];
+    for (const op of refused) {
+      expect(() => reduce(board, op, luke)).toThrow(/owner/);
+      expect(() => reduce(board, op, han)).not.toThrow();
+    }
+  });
+
+  it('never lets the owner or another participant edit someone’s text', () => {
+    const board = seeded();
+    for (const actor of [owner, luke]) {
+      expect(() =>
+        reduce(board, { type: 'editCard', id: 'h1', text: 'x' }, actor),
+      ).toThrow(/your own/);
+    }
+    for (const actor of [owner, luke]) {
+      expect(() =>
+        reduce(board, { type: 'editComment', id: 'hc', text: 'x' }, actor),
+      ).toThrow(/your own/);
+    }
+  });
+
+  it('lets only the author or the owner delete', () => {
+    const board = seeded();
+    expect(() => reduce(board, { type: 'deleteCard', id: 'h1' }, luke)).toThrow(
+      /your own/,
+    );
+    expect(() =>
+      reduce(board, { type: 'deleteComment', id: 'hc' }, luke),
+    ).toThrow(/your own/);
+    expect(() =>
+      reduce(board, { type: 'deleteCard', id: 'h1' }, owner),
+    ).not.toThrow();
+    expect(() =>
+      reduce(board, { type: 'deleteComment', id: 'hc' }, owner),
+    ).not.toThrow();
+  });
+
+  it('gives a redacted actor no authority over anonymous items', () => {
+    const board = redactAnonymous(
+      apply(fresh(), [[add('anon', 'Secret', true), han]]),
+    );
+    const nobody: Actor = { id: '', name: '', isOwner: false };
+    expect(() =>
+      reduce(board, { type: 'editCard', id: 'anon', text: 'x' }, nobody),
+    ).toThrow(/your own/);
+    expect(() =>
+      reduce(board, { type: 'deleteCard', id: 'anon' }, nobody),
+    ).toThrow(/your own/);
+  });
+
+  it('caps the seats on a board', () => {
+    let board = fresh();
+    for (let i = board.participants.length; i < LIMITS.participantsMax; i++) {
+      board = reduce(
+        board,
+        { type: 'setName', name: `P${i}` },
+        { id: `p${i}`, name: `P${i}`, isOwner: false },
+      );
+    }
+    expect(() =>
+      reduce(
+        board,
+        { type: 'setName', name: 'Late' },
+        { id: 'late', name: 'Late', isOwner: false },
+      ),
+    ).toThrow('This board is full');
+  });
+});
