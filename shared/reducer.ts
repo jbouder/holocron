@@ -186,9 +186,7 @@ export function isCardHidden(board: Board, card: Card, viewer: Viewer) {
  * from them and would name them. Nobody does those until Write ends.
  */
 export function isCardSealed(board: Board, card: Card): boolean {
-  return (
-    board.phase === 'write' && board.settings.blurDuringWrite && card.anonymous
-  );
+  return blursCards(board) && card.anonymous;
 }
 
 function findComment(board: Board, id: string): Comment {
