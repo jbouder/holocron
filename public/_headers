@@ -1,10 +1,30 @@
 # Response headers for the static assets (Cloudflare Workers static assets
 # reads this file; see docs/self-hosting.md if you serve them another way).
+# The Worker's own responses (/api, /ws) set theirs in worker/index.ts.
 #
 # Send no referrer to other sites. Two reasons: a board URL carries its
 # code, which third parties have no business seeing; and Hugging Face
 # refuses model downloads whose Referer is a *.workers.dev page, including
 # the ones the analysis worker makes through Cache.add(), which no fetch
 # wrapper can reach. The header on the worker script is what fixes that.
+#
+# Content-Security-Policy, by directive:
+#   script-src   the inline theme script in index.html, by hash (change the
+#                script and test/headers.test.ts tells you the new one);
+#                WebAssembly for the analysis model; Turnstile.
+#   style-src    'unsafe-inline' for style attributes set by Turnstile and
+#                the UI library; no stylesheet comes from anywhere else.
+#   connect-src  the model weights (Hugging Face and the CDNs it redirects
+#                to) and the model library (raw.githubusercontent.com).
+#                'self' covers the board's WebSocket.
+#   frame-src    Turnstile's challenge.
 /*
   Referrer-Policy: same-origin
+<<<<<<< Updated upstream
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-++m5lfUpXL6a5ZG1Ls7Sl6cpzdc9qPdfU3B5O1b6hC0=' 'wasm-unsafe-eval' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://huggingface.co https://*.huggingface.co https://*.hf.co https://raw.githubusercontent.com; frame-src https://challenges.cloudflare.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'
+=======
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-++m5lfUpXL6a5ZG1Ls7Sl6cpzdc9qPdfU3B5O1b6hC0=' 'wasm-unsafe-eval' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://huggingface.co https://*.huggingface.co https://*.hf.co https://raw.githubusercontent.com; frame-src https://challenges.cloudflare.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'
+>>>>>>> Stashed changes
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=(), hid=(), midi=()
