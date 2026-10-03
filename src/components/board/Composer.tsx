@@ -1,5 +1,12 @@
 import { PaperPlaneRightIcon } from '@phosphor-icons/react';
-import { type FormEvent, useId, useState } from 'react';
+import {
+  type FocusEvent,
+  type FormEvent,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from 'react';
 import { LIMITS } from '#shared/limits';
 import type { Op } from '#shared/protocol';
 import { Button } from '@/components/ui/button';
@@ -22,6 +29,33 @@ export function Composer({
   const [focused, setFocused] = useState(false);
   const id = useId();
   const trimmed = text.trim();
+  const pressing = usePointerPressed();
+
+  /**
+   * Shrink once focus has gone. A press elsewhere takes focus on
+   * pointerdown, and shrinking then would move whatever is under the pointer
+   * before the click lands (a vote, the anonymous checkbox), so wait for the
+   * press to end and its click to fire.
+   */
+  function blur(event: FocusEvent<HTMLTextAreaElement>) {
+    const box = event.currentTarget;
+    const collapse = () => {
+      if (document.activeElement !== box) {
+        setFocused(false);
+      }
+    };
+    if (!pressing.current) {
+      collapse();
+      return;
+    }
+    const release = () => {
+      window.removeEventListener('pointerup', release);
+      window.removeEventListener('pointercancel', release);
+      window.setTimeout(collapse, 0);
+    };
+    window.addEventListener('pointerup', release);
+    window.addEventListener('pointercancel', release);
+  }
 
   function submit(event?: FormEvent) {
     event?.preventDefault();
@@ -49,7 +83,7 @@ export function Composer({
         maxLength={LIMITS.cardTextMax}
         placeholder="Add a card…"
         onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
+        onBlur={blur}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' && !e.shiftKey) {
@@ -96,4 +130,27 @@ export function Composer({
       )}
     </form>
   );
+}
+
+/** Whether a pointer is pressed anywhere on the page right now. */
+function usePointerPressed() {
+  const pressed = useRef(false);
+  useEffect(() => {
+    const down = () => {
+      pressed.current = true;
+    };
+    const up = () => {
+      pressed.current = false;
+    };
+    // Capture, so a press counts before its pointerdown blurs anything.
+    window.addEventListener('pointerdown', down, true);
+    window.addEventListener('pointerup', up, true);
+    window.addEventListener('pointercancel', up, true);
+    return () => {
+      window.removeEventListener('pointerdown', down, true);
+      window.removeEventListener('pointerup', up, true);
+      window.removeEventListener('pointercancel', up, true);
+    };
+  }, []);
+  return pressed;
 }

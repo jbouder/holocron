@@ -132,14 +132,8 @@ function CommentItem({
       <div className="flex items-center gap-1 text-muted-foreground">
         <span className="min-w-0 flex-1 truncate">
           {comment.anonymous ? 'Anonymous' : comment.authorName}
-          {mine && (
-            <span className="opacity-70">
-              {comment.anonymous ? ' · yours' : ' · you'}
-            </span>
-          )}
-          {comment.editedAt !== null && (
-            <span className="opacity-70"> · edited</span>
-          )}
+          {mine && <span>{comment.anonymous ? ' · yours' : ' · you'}</span>}
+          {comment.editedAt !== null && <span> · edited</span>}
         </span>
         {mine && !editing && (
           <Button

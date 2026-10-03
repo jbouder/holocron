@@ -26,6 +26,10 @@ itself on an alarm.
   are the owner-only in-browser analysis (WebLLM in `lib/analysis.worker.ts`,
   lazy-loaded; the prompt never carries names or ids).
 - `test/` — Vitest running inside workerd (`@cloudflare/vitest-plugin`).
+- `e2e/` — Playwright + axe against the built app under `vite preview`
+  (Chromium). `fixtures.ts` gives each test its own client IP (the create
+  limiter is live in Miniflare), blocks every request off localhost, and
+  offers a second participant as `peer`.
 - `docs/` — self-hosting, architecture, data retention, security (threat
   model + review findings). The in-app Help page
   (`src/pages/HelpPage.tsx`) covers *using* the tool only.
@@ -85,10 +89,13 @@ fails on Vitest 4.1 peers).
 bun install
 npm run dev          # Vite + Worker + DO locally (Miniflare)
 npm test             # wrangler types + vitest (runs in workerd)
+npm run e2e          # playwright: build, vite preview, browser suite
 npm run check        # biome check --write
 npm run build        # wrangler types + tsc -b + vite build
 npm run deploy       # build + wrangler deploy
 ```
 
-Run `npm run check && npm run build && npm test` before finishing any change.
-Verify UI changes in the browser with two tabs on the same board.
+Run `npm run check && npm run build && npm test` before finishing any change,
+and `npm run e2e` when it touches the UI (first time: `bunx playwright
+install chromium`). Verify UI changes in the browser with two tabs on the
+same board too; add an e2e spec when a flow is worth keeping.

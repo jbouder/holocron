@@ -138,6 +138,7 @@ for their open and close transitions; nothing else uses it.)
 bun install          # npm's resolver currently trips on Vitest 4.1 peers
 npm run dev          # http://localhost:5173 with the Worker and DO running locally
 npm test             # type-gen + vitest (reducer, reset-time math, DO lifecycle, alarm wipe)
+npm run e2e          # playwright + axe: a live retro in two browsers, privacy, keyboard, a11y
 npm run check        # biome
 npm run build        # types + tsc + vite build (client + worker)
 npm run deploy       # build + wrangler deploy
