@@ -92,7 +92,7 @@ export function Columns({ board, you, dispatch }: ColumnsProps) {
   );
 
   return (
-    <div className="mx-auto w-full max-w-7xl flex-1 px-4 py-4 sm:px-6">
+    <div className="w-full flex-1 px-4 py-4 sm:px-6">
       <div ref={containerRef} className="board-columns">
         {columns.map((column, i) => (
           <ColumnView

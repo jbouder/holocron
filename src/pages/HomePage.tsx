@@ -35,22 +35,22 @@ import { useToast } from '@/providers/ToastProvider';
 export function HomePage() {
   const config = useConfig();
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-10 px-4 py-10 sm:px-6 lg:py-14">
+    <div className="flex w-full flex-1 flex-col gap-8 px-4 py-10 sm:px-6 lg:py-10">
       <section
-        className="stagger-in max-w-2xl"
+        className="stagger-in"
         style={{ '--i': 0 } as React.CSSProperties}
       >
-        <h1 className="font-heading text-4xl font-semibold tracking-tight sm:text-5xl">
+        <h1 className="max-w-3xl text-pretty font-heading text-4xl font-semibold tracking-tight sm:text-5xl">
           The retro board that doesn't archive your retros.
         </h1>
-        <p className="mt-4 text-pretty text-base text-muted-foreground sm:text-lg">
+        <p className="mt-4 max-w-4xl text-pretty text-base text-muted-foreground sm:text-lg">
           No accounts, no history, no trace. Share a six-character key, unlock
           the holocron together, and export the wisdom worth keeping. Everything
           else is purged from the archives at dawn.
         </p>
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+      <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr] xl:grid-cols-[2fr_1fr]">
         <CreatePanel turnstileSiteKey={config?.turnstileSiteKey ?? null} />
         <div className="flex flex-col gap-6">
           <JoinPanel />
@@ -164,7 +164,7 @@ function CreatePanel({
 
           <fieldset className="grid gap-2">
             <legend className="mb-2 text-sm font-medium">Template</legend>
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
               {TEMPLATES.map((template, i) => {
                 const selected = template.id === templateId;
                 return (
