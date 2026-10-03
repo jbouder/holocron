@@ -40,7 +40,8 @@ WebSockets, and wipes itself on an alarm.
   are included in the export.
 - **Grouping.** Drag a card onto another to stack them; groups carry a
   combined vote count. Drag to an empty spot to move between columns.
-- **Timer.** 1–15 minute presets, counted down on every screen.
+- **Timer.** 1–15 minute presets, counted down on every screen. At zero a
+  short chime plays and the tab title flags it (switchable in Preferences).
 - **Action items.** Text, optional owner, done checkbox. Exported with the board.
 - **Presence.** Who is here, who stepped away, who owns the board.
 - **Export.** Markdown download or copy: columns, grouped cards with votes
@@ -54,7 +55,7 @@ WebSockets, and wipes itself on an alarm.
   the board early. Ownership is a token in the creating browser; the server
   stores only its hash.
 - **Themes**: System, Light, Dark (side), plus Dagobah, Tatooine and
-  Synthwave, and a motion switch in Preferences.
+  Synthwave, and motion and timer-sound switches in Preferences.
   `prefers-reduced-motion` is a hard override.
 - **In-app help** at `/help` covers everything above for participants.
 
@@ -80,7 +81,7 @@ WebSockets, and wipes itself on an alarm.
   [docs/self-hosting.md](docs/self-hosting.md).
 - The browser stores: a random participant id and secret (the secret is what
   stops anyone else connecting as you), your display name, owner tokens for
-  boards you created, theme and motion preferences, and a list of recent
+  boards you created, theme, motion and timer-sound preferences, and a list of recent
   boards (pruned as they expire). All under `localStorage` keys prefixed
   `holocron:`. Clearing site data removes them.
 

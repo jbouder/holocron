@@ -16,13 +16,15 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useIdentity } from '@/lib/identity';
 import { isThemeId, THEMES } from '@/lib/themes';
+import { setTimerSound, useTimerSound } from '@/lib/timer-alert';
 import { useMotion } from '@/providers/MotionProvider';
 import { useTheme } from '@/providers/ThemeProvider';
 
-/** Theme, motion and your name. Per device, nothing here touches a board. */
+/** Theme, motion, timer sound and your name. Per device, nothing here touches a board. */
 export function PreferencesMenu() {
   const { theme, setTheme } = useTheme();
   const motion = useMotion();
+  const timerSound = useTimerSound();
   const identity = useIdentity();
   const [naming, setNaming] = useState(false);
 
@@ -54,6 +56,13 @@ export function PreferencesMenu() {
               {motion.reduced && (
                 <span className="text-muted-foreground">off by your OS</span>
               )}
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              closeOnClick={false}
+              checked={timerSound}
+              onCheckedChange={(on) => setTimerSound(on)}
+            >
+              Timer sound
             </DropdownMenuCheckboxItem>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
