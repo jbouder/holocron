@@ -5,7 +5,7 @@ Browser ──HTTP──▶ Worker (worker/index.ts) ──RPC──▶ BoardObj
    │                 │  POST /api/boards            create()
    │                 │  GET  /api/boards/:code      meta()
    │                 │  DELETE /api/boards/:code    destroy(token)
-   │                 │  GET  …/export.md            exportMarkdown()
+   │                 │  GET  …/export.{md,csv,txt}  export(format)
    │                 │  GET  /api/config
    └──WebSocket──▶   │  GET  /ws/:code  ──fetch()──▶ acceptWebSocket()
                      └─ everything else: static assets (Vite build, SPA fallback)

@@ -559,6 +559,18 @@ html[data-vt="theme"]::view-transition-new(root) {
   background-color: color-mix(in oklch, var(--accent), transparent 40%);
 }
 
+/* A card jumped to from a linked action item: ring it and nudge it once. The
+   ring is static, so it still shows with motion off. */
+.retro-card[data-revealed] {
+  outline-color: var(--ring);
+  animation: card-reveal var(--duration-slow) var(--ease-emphasized) 2;
+}
+@keyframes card-reveal {
+  50% {
+    scale: 1.03;
+  }
+}
+
 /* ---- Timer ring --------------------------------------------------------- */
 
 .timer-ring circle {

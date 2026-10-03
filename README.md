@@ -41,11 +41,15 @@ WebSockets, and wipes itself on an alarm.
 - **Grouping.** Drag a card onto another to stack them; groups carry a
   combined vote count. Drag to an empty spot to move between columns.
 - **Timer.** 1–15 minute presets, counted down on every screen.
-- **Action items.** Text, optional owner, done checkbox. Exported with the board.
+- **Action items.** Text, optional owner, done checkbox, and an optional
+  link to the card it came from (from the card's `⋯` menu). Exported with the
+  board.
 - **Presence.** Who is here, who stepped away, who owns the board.
-- **Export.** Markdown download or copy: columns, grouped cards with votes
-  and reactions, comments, action items. Same output from the UI and the
-  `/export.md` endpoint.
+- **Export.** Download or copy in three formats: Markdown (columns, grouped
+  cards with votes and reactions, comments, action items), CSV of the action
+  items for a tracker import, and a short plain-text summary for chat. Same
+  output from the UI and the `/export.md`, `/export.csv` and `/export.txt`
+  endpoints.
 - **Facilitation.** By default anyone on the board can move the phase, set
   the timer, rename the board, and add, rename or remove columns. The owner
   can lock all of that to themselves ("Only I can facilitate").

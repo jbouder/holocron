@@ -204,16 +204,40 @@ export function HelpPage() {
             you enter Discuss). Add an item, name an owner, and tick it off when
             it is done. Action items are part of the export.
           </p>
+          <p>
+            To record where an action came from, choose Add action item in a
+            card's <Kbd>⋯</Kbd> menu. The panel opens with the new item linked
+            to that card. A linked item shows the card's text underneath; click
+            it to jump to the card. Deleting the card keeps the action item and
+            drops the link.
+          </p>
         </Section>
 
         <Section id="export" title="Export" index={10}>
           <p>
-            Export gives you the board as Markdown: every column, grouped cards
-            with their vote and reaction counts, comments under their card, and
-            the action items. Download it or copy it to the clipboard and paste
-            it into your wiki or chat. Do this before the board expires; there
-            is no later.
+            Export gives you the board in three formats. Download any of them or
+            copy it to the clipboard. Do this before the board expires; there is
+            no later.
           </p>
+          <ul className="list-disc space-y-1 pl-5">
+            <li>
+              <span className="font-medium text-foreground">Markdown</span>:
+              every column, grouped cards with their vote and reaction counts,
+              comments under their card, and the action items with the card each
+              came from. For a wiki.
+            </li>
+            <li>
+              <span className="font-medium text-foreground">CSV</span>: the
+              action items only, one per row (summary, owner, done, card), for
+              importing into Jira, Linear or a spreadsheet.
+            </li>
+            <li>
+              <span className="font-medium text-foreground">Summary</span>: the
+              five most-voted cards and the action items as plain text, short
+              enough to paste into Slack or Teams.
+            </li>
+          </ul>
+          <p>Anonymous cards and comments never carry a name in any format.</p>
         </Section>
 
         <Section id="ownership" title="Ownership and deleting" index={11}>

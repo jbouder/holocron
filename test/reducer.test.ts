@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { boardToMarkdown } from '#shared/export';
+import {
+  actionItemsToCsv,
+  boardToMarkdown,
+  boardToSummary,
+  exportBoard,
+} from '#shared/export';
 import { LIMITS } from '#shared/limits';
 import { type Op, OpSchema } from '#shared/protocol';
 import {
@@ -611,6 +616,18 @@ describe('upgradeBoard', () => {
     expect(upgraded.reactions).toEqual([]);
     expect(upgraded.comments).toEqual([]);
   });
+
+  it('gives action items stored before card links a null cardId', () => {
+    const board = apply(fresh(), [
+      [{ type: 'addActionItem', id: 'ai', text: 'Do it', owner: '' }, han],
+    ]);
+    const { cardId: _c, ...oldItem } = board.actionItems[0];
+    const upgraded = upgradeBoard({
+      ...board,
+      actionItems: [oldItem as Board['actionItems'][number]],
+    });
+    expect(upgraded.actionItems[0].cardId).toBeNull();
+  });
 });
 
 describe('export with reactions and comments', () => {
@@ -780,5 +797,246 @@ describe('anonymity', () => {
     });
     const moved = reduce(next, { type: 'deleteCard', id: 'later' }, echoActor);
     expect(moved.cards.some((c) => c.id === 'later')).toBe(false);
+  });
+});
+
+describe('action items linked to cards', () => {
+  const addAction = (
+    id: string,
+    cardId: string | null | undefined,
+    text = 'Fix it',
+  ): Op => ({ type: 'addActionItem', id, text, owner: '', cardId });
+
+  it('links a new action item to a card, or to nothing', () => {
+    const board = apply(fresh(), [
+      [add('a', 'Flaky CI'), han],
+      [addAction('ai1', 'a'), han],
+      [addAction('ai2', null), luke],
+      [
+        { type: 'addActionItem', id: 'ai3', text: 'Old client', owner: '' },
+        luke,
+      ],
+    ]);
+    expect(board.actionItems.map((a) => a.cardId)).toEqual(['a', null, null]);
+  });
+
+  it('refuses a card that does not exist', () => {
+    expect(() => apply(fresh(), [[addAction('ai', 'nope'), han]])).toThrow(
+      OpError,
+    );
+  });
+
+  it('refuses a card still blurred for the actor in Write', () => {
+    const board = apply(fresh(), [[add('a', 'Secret'), han]]);
+    expect(() => reduce(board, addAction('ai', 'a'), luke)).toThrow(OpError);
+    // The author can, and anyone can once the phase moves on.
+    expect(reduce(board, addAction('ai', 'a'), han).actionItems).toHaveLength(
+      1,
+    );
+    const voting = reduce(board, { type: 'setPhase', phase: 'vote' }, owner);
+    expect(
+      reduce(voting, addAction('ai', 'a'), luke).actionItems[0].cardId,
+    ).toBe('a');
+  });
+
+  it('edits keep the link unless one is given; null removes it', () => {
+    let board = apply(fresh(), [
+      [add('a', 'One'), han],
+      [add('b', 'Two'), han],
+      [addAction('ai', 'a'), han],
+      [
+        { type: 'editActionItem', id: 'ai', text: 'Renamed', owner: 'Luke' },
+        han,
+      ],
+    ]);
+    expect(board.actionItems[0]).toMatchObject({
+      text: 'Renamed',
+      cardId: 'a',
+    });
+    board = reduce(
+      board,
+      { type: 'editActionItem', id: 'ai', text: 'R', owner: '', cardId: 'b' },
+      han,
+    );
+    expect(board.actionItems[0].cardId).toBe('b');
+    board = reduce(
+      board,
+      { type: 'editActionItem', id: 'ai', text: 'R', owner: '', cardId: null },
+      han,
+    );
+    expect(board.actionItems[0].cardId).toBeNull();
+    expect(() =>
+      reduce(
+        board,
+        { type: 'editActionItem', id: 'ai', text: 'R', owner: '', cardId: 'x' },
+        han,
+      ),
+    ).toThrow(OpError);
+  });
+
+  it('keeps the action item but drops the link when its card goes', () => {
+    const board = apply(fresh(), [
+      [add('a', 'One'), han],
+      [{ ...add('b', 'Two'), columnId: 'col-2' } as Op, han],
+      [addAction('ai1', 'a'), han],
+      [addAction('ai2', 'b'), han],
+      [{ type: 'deleteCard', id: 'a' }, han],
+    ]);
+    expect(board.actionItems.map((a) => a.cardId)).toEqual([null, 'b']);
+    const columnGone = reduce(
+      board,
+      { type: 'deleteColumn', id: 'col-2' },
+      owner,
+    );
+    expect(columnGone.actionItems.map((a) => a.cardId)).toEqual([null, null]);
+    expect(columnGone.actionItems).toHaveLength(2);
+  });
+
+  it('accepts cardId in the protocol, and rejects a non-string', () => {
+    expect(
+      OpSchema.safeParse({
+        type: 'addActionItem',
+        id: 'ai',
+        text: 'x',
+        owner: '',
+        cardId: 'a',
+      }).success,
+    ).toBe(true);
+    expect(
+      OpSchema.safeParse({
+        type: 'addActionItem',
+        id: 'ai',
+        text: 'x',
+        owner: '',
+        cardId: 42,
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe('export formats', () => {
+  function retro(): Board {
+    return apply(fresh(), [
+      [add('a', 'Deploys were slow'), han],
+      [add('b', 'Nobody knew who wrote this', true), luke],
+      [add('c', 'Pairing helped'), han],
+      [add('d', 'Pairing again'), luke],
+      [{ type: 'groupCards', id: 'd', targetId: 'c', groupId: 'g1' }, han],
+      [{ type: 'setPhase', phase: 'vote' }, owner],
+      [{ type: 'vote', cardId: 'b' }, han],
+      [{ type: 'vote', cardId: 'b' }, han],
+      [{ type: 'vote', cardId: 'b' }, luke],
+      [{ type: 'vote', cardId: 'c' }, han],
+      [{ type: 'vote', cardId: 'd' }, luke],
+      [{ type: 'setPhase', phase: 'discuss' }, owner],
+      [
+        {
+          type: 'addActionItem',
+          id: 'ai1',
+          text: 'Speed up "deploy", now',
+          owner: 'Luke',
+          cardId: 'a',
+        },
+        owner,
+      ],
+      [
+        {
+          type: 'addActionItem',
+          id: 'ai2',
+          text: 'Talk it through',
+          owner: '',
+          cardId: 'b',
+        },
+        owner,
+      ],
+      [{ type: 'toggleActionItem', id: 'ai2' }, owner],
+    ]);
+  }
+
+  it('prints the linked card under an action item in Markdown, without its author', () => {
+    const md = boardToMarkdown(retro(), 0);
+    expect(md).toContain(
+      '- [ ] Speed up "deploy", now — Luke\n  - From: Deploys were slow\n',
+    );
+    expect(md).toContain(
+      '- [x] Talk it through\n  - From: Nobody knew who wrote this\n',
+    );
+    expect(md).not.toMatch(/From: .*_\(/);
+  });
+
+  it('exports action items as RFC 4180 CSV', () => {
+    expect(actionItemsToCsv(retro())).toBe(
+      'Summary,Owner,Done,Card\r\n' +
+        '"Speed up ""deploy"", now",Luke,no,Deploys were slow\r\n' +
+        'Talk it through,,yes,Nobody knew who wrote this\r\n',
+    );
+  });
+
+  it('quotes newlines and defuses formula injection in CSV cells', () => {
+    const board = apply(fresh(), [
+      [add('a', 'line one\nline two'), han],
+      [
+        {
+          type: 'addActionItem',
+          id: 'ai1',
+          text: '=HYPERLINK("http://x")',
+          owner: '@han',
+          cardId: 'a',
+        },
+        han,
+      ],
+      [{ type: 'addActionItem', id: 'ai2', text: '-1+2', owner: '+x' }, han],
+    ]);
+    const lines = actionItemsToCsv(board).split('\r\n');
+    expect(lines[1]).toBe(
+      `"'=HYPERLINK(""http://x"")",'@han,no,"line one\nline two"`,
+    );
+    expect(lines[2]).toBe("'-1+2,'+x,no,");
+  });
+
+  it('writes an empty CSV with only the header', () => {
+    expect(actionItemsToCsv(fresh())).toBe('Summary,Owner,Done,Card\r\n');
+  });
+
+  it('summarises the most-voted cards and the action items as plain text', () => {
+    const text = boardToSummary(retro(), Date.UTC(2026, 9, 2));
+    expect(text).toBe(
+      [
+        'Sprint 42 · retro 2026-10-02',
+        '',
+        'Top voted',
+        '• Nobody knew who wrote this (3 votes)',
+        '• Pairing helped (+1 similar) (2 votes)',
+        '',
+        'Action items',
+        '☐ Speed up "deploy", now (Luke)',
+        '☑ Talk it through',
+        '',
+      ].join('\n'),
+    );
+    // No author names anywhere, and no Markdown.
+    expect(text).not.toContain('Han');
+    expect(text).not.toContain('**');
+  });
+
+  it('caps the summary at the top five and says when there are no action items', () => {
+    const ops: Array<[Op, Actor]> = [];
+    for (let i = 0; i < 7; i++) {
+      ops.push([add(`k${i}`, `Card ${i}`), han]);
+    }
+    ops.push([{ type: 'setPhase', phase: 'vote' }, owner]);
+    for (let i = 0; i < 7; i++) {
+      ops.push([{ type: 'vote', cardId: `k${i}` }, i < 4 ? han : luke]);
+    }
+    const text = boardToSummary(apply(fresh(), ops), 0);
+    expect(text.match(/^• /gm)).toHaveLength(5);
+    expect(text).toContain('Action items\nNone yet.\n');
+  });
+
+  it('routes each format through exportBoard', () => {
+    const board = retro();
+    expect(exportBoard(board, 'md', 0)).toBe(boardToMarkdown(board, 0));
+    expect(exportBoard(board, 'csv', 0)).toBe(actionItemsToCsv(board));
+    expect(exportBoard(board, 'txt', 0)).toBe(boardToSummary(board, 0));
   });
 });

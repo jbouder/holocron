@@ -154,6 +154,30 @@ describe('board lifecycle over HTTP', () => {
     expect(response.headers.get('content-type')).toContain('text/markdown');
     expect(await response.text()).toContain('# Export me');
   });
+
+  it('exports CSV and a plain-text summary, and 404s other formats', async () => {
+    const created = await createBoard({ title: 'Export me' });
+    const base = `http://holocron.test/api/boards/${created.code}`;
+
+    const csv = await call(new Request(`${base}/export.csv`));
+    expect(csv.status).toBe(200);
+    expect(csv.headers.get('content-type')).toContain('text/csv');
+    expect(csv.headers.get('content-disposition')).toContain(
+      `retro-${created.code}.csv`,
+    );
+    expect(await csv.text()).toBe('Summary,Owner,Done,Card\r\n');
+
+    const txt = await call(new Request(`${base}/export.txt`));
+    expect(txt.status).toBe(200);
+    expect(txt.headers.get('content-type')).toContain('text/plain');
+    expect(await txt.text()).toContain('Export me · retro ');
+
+    expect((await call(new Request(`${base}/export.pdf`))).status).toBe(404);
+    expect(
+      (await call(new Request(`${base}/export.csv`, { method: 'POST' })))
+        .status,
+    ).toBe(405);
+  });
 });
 
 describe('the daily wipe', () => {
@@ -499,6 +523,13 @@ describe('storage hygiene', () => {
       (
         await call(
           new Request(`http://holocron.test/api/boards/${code}/export.md`),
+        )
+      ).status,
+    ).toBe(404);
+    expect(
+      (
+        await call(
+          new Request(`http://holocron.test/api/boards/${code}/export.csv`),
         )
       ).status,
     ).toBe(404);

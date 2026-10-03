@@ -56,8 +56,8 @@ storage and answers 404. An owner can delete a board earlier; the same wipe
 runs.
 
 Boards do not reset to empty; they cease to exist. There is no archive,
-export history, or backup. What a team wants to keep, it exports as Markdown
-before the reset.
+export history, or backup. What a team wants to keep, it exports (Markdown,
+CSV of action items, or a plain-text summary) before the reset.
 
 Request logs (status, URL, timing) are kept according to your Cloudflare
 account's Workers Logs retention. The participant id and secret, the display
