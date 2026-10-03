@@ -29,7 +29,7 @@ anonymous: everyone can see who voted or reacted.
 
 - a random participant id, a random participant secret, and the display name
 - owner tokens for boards created in that browser
-- theme and motion preferences
+- theme, motion and timer-sound preferences
 - recent boards (code, title, expiry), pruned as they expire
 
 Nothing else. No cookies, no accounts, no analytics, and no third-party

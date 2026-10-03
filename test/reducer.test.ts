@@ -14,6 +14,7 @@ import {
   reduce,
   upgradeBoard,
   votesFor,
+  votesLeft,
   votesUsed,
 } from '#shared/reducer';
 import { TEMPLATES } from '#shared/templates';
@@ -708,6 +709,83 @@ describe('upgradeBoard', () => {
     };
     const upgraded = upgradeBoard(old as Board);
     expect(upgraded.columns.map((c) => c.prompt)).toEqual(['', '', '']);
+  });
+
+  it('fills in done on boards stored before it existed', () => {
+    const { done: _d, ...old } = fresh();
+    expect(upgradeBoard(old as Board).done).toEqual([]);
+  });
+});
+
+describe('done signals', () => {
+  const done: Op = { type: 'setDone', done: true };
+  const undone: Op = { type: 'setDone', done: false };
+
+  it('starts with nobody done', () => {
+    expect(fresh().done).toEqual([]);
+  });
+
+  it('marks and unmarks only the actor', () => {
+    let board = apply(fresh(), [
+      [done, han],
+      [done, luke],
+    ]);
+    expect(board.done).toEqual(['han', 'luke']);
+    board = reduce(board, undone, han);
+    expect(board.done).toEqual(['luke']);
+  });
+
+  it('ignores repeats and undoing when not done', () => {
+    const board = apply(fresh(), [
+      [done, han],
+      [done, han],
+    ]);
+    expect(board.done).toEqual(['han']);
+    expect(reduce(fresh(), undone, han).done).toEqual([]);
+  });
+
+  it('carries no participant id in the op, so nobody can mark someone else', () => {
+    expect(
+      OpSchema.safeParse({ type: 'setDone', done: true, id: 'han' }).data,
+    ).toEqual({ type: 'setDone', done: true });
+  });
+
+  it('only works in Write', () => {
+    const voting = reduce(fresh(), { type: 'setPhase', phase: 'vote' }, owner);
+    expect(() => reduce(voting, done, han)).toThrow(OpError);
+  });
+
+  it('clears when the phase changes, and survives a no-op phase change', () => {
+    const board = reduce(fresh(), done, han);
+    expect(
+      reduce(board, { type: 'setPhase', phase: 'write' }, owner).done,
+    ).toEqual(['han']);
+    const voting = reduce(board, { type: 'setPhase', phase: 'vote' }, owner);
+    expect(voting.done).toEqual([]);
+    const back = reduce(voting, { type: 'setPhase', phase: 'write' }, owner);
+    expect(back.done).toEqual([]);
+  });
+
+  it('ignores a redacted echo', () => {
+    const anon: Actor = { id: '', name: '', isOwner: false };
+    expect(reduce(fresh(), done, anon).done).toEqual([]);
+  });
+
+  it('counts votes left without going negative', () => {
+    let board = reduce(fresh(), { type: 'setPhase', phase: 'vote' }, owner);
+    board = apply(board, [[add('a', 'One'), han]]);
+    expect(votesLeft(board, 'han')).toBe(5);
+    board = apply(board, [
+      [{ type: 'vote', cardId: 'a' }, han],
+      [{ type: 'vote', cardId: 'a' }, han],
+    ]);
+    expect(votesLeft(board, 'han')).toBe(3);
+    board = reduce(
+      board,
+      { type: 'updateSettings', settings: { votesPerPerson: 1 } },
+      owner,
+    );
+    expect(votesLeft(board, 'han')).toBe(0);
   });
 });
 

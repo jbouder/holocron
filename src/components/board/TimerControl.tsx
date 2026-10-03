@@ -9,7 +9,14 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { formatClock, useNow } from '@/hooks/useNow';
+import {
+  flashTitle,
+  playChime,
+  useAudioUnlock,
+  useTimerSound,
+} from '@/lib/timer-alert';
 import { cn } from '@/lib/utils';
+import { useMotion } from '@/providers/MotionProvider';
 
 const PRESETS = [1, 2, 3, 5, 10, 15];
 
@@ -42,6 +49,37 @@ export function TimerControl({
     }
     wasRunning.current = timer !== null && remaining > 0;
   }, [done, timer, remaining]);
+
+  // Chime and title flash, once per timer, and only for a timer this tab
+  // saw running: rejoining a board whose timer already ran out stays quiet.
+  useAudioUnlock();
+  const sound = useTimerSound();
+  const motion = useMotion();
+  const endsAt = timer?.endsAt ?? null;
+  const sawRunning = useRef<number | null>(null);
+  const alerted = useRef<number | null>(null);
+  const stopTitle = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    if (endsAt === null) return;
+    if (!done) {
+      sawRunning.current = endsAt;
+      return;
+    }
+    if (sawRunning.current !== endsAt || alerted.current === endsAt) return;
+    alerted.current = endsAt;
+    if (sound) playChime();
+    stopTitle.current?.();
+    stopTitle.current = flashTitle(motion.active);
+  }, [endsAt, done, sound, motion.active]);
+  // A new or cleared timer, or leaving the board, puts the title back.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: endsAt is the trigger, not an input
+  useEffect(
+    () => () => {
+      stopTitle.current?.();
+      stopTitle.current = null;
+    },
+    [endsAt],
+  );
 
   const R = 8;
   const C = 2 * Math.PI * R;
