@@ -58,6 +58,12 @@ interface CardViewProps {
   grouped?: boolean;
 }
 
+/**
+ * What a blurred card shows: the server never sends its text (see
+ * `redactHidden`), so something has to sit under the blur.
+ */
+const HIDDEN_TEXT = 'Hidden until the Write phase ends';
+
 export function CardView({
   card,
   votes,
@@ -210,7 +216,7 @@ export function CardView({
             onDoubleClick={canInlineEdit ? startEdit : undefined}
             onPointerUp={canInlineEdit ? onTextPointerUp : undefined}
           >
-            {card.text}
+            {blurred ? HIDDEN_TEXT : card.text}
           </p>
         )}
 

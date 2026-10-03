@@ -105,9 +105,13 @@ included, until Write ends or blurring is turned off. The UI hides them
 
 ### Blur during Write
 
-Blurring is a UI effect. The text of every card is in every snapshot, every
-echo, and the unauthenticated export
-([#68](https://github.com/jbouder/holocron/issues/68)).
+While cards are blurred (`blursCards`), the text of a card, and of the
+comments on it, only goes to its author. `redactHidden()` blanks it in each
+recipient's snapshot and `redactHiddenOp()` in each echo. When a phase or
+settings change lifts or brings back the blur, every socket gets a fresh
+snapshot. Exports, which need no identity, leave cards out until Write ends
+(fixed in [#68](https://github.com/jbouder/holocron/issues/68); tests:
+"blurred cards stay on the server", "blurred cards on the wire").
 
 ### The wipe
 
@@ -207,7 +211,6 @@ No action beyond `bun update` when shadcn bumps it.
 
 | # | Severity | Finding |
 | --- | --- | --- |
-| [#68](https://github.com/jbouder/holocron/issues/68) | Medium | Blur during Write is client-side only |
 | [#69](https://github.com/jbouder/holocron/issues/69) | Medium | No CSP / frame-ancestors / nosniff / Permissions-Policy |
 | [#70](https://github.com/jbouder/holocron/issues/70) | Medium | Board-code probing isn't rate-limited |
 | [#71](https://github.com/jbouder/holocron/issues/71) | Medium | Unbounded sockets; seats never released |

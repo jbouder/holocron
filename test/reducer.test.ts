@@ -17,6 +17,8 @@ import {
   isCommentAuthor,
   OpError,
   redactAnonymous,
+  redactHidden,
+  redactHiddenOp,
   reduce,
   upgradeBoard,
   votesFor,
@@ -432,11 +434,10 @@ describe('action items and export', () => {
   });
 
   it('leaves out an empty prompt', () => {
-    const board = reduce(
-      fresh(),
-      { type: 'setColumnPrompt', id: 'col-1', prompt: '' },
-      owner,
-    );
+    const board = apply(fresh(), [
+      [{ type: 'setColumnPrompt', id: 'col-1', prompt: '' }, owner],
+      [{ type: 'setPhase', phase: 'discuss' }, owner],
+    ]);
     expect(boardToMarkdown(board, 0)).toContain('## Went well\n\n_No cards._');
   });
 });
@@ -1165,6 +1166,7 @@ describe('export formats', () => {
         han,
       ],
       [{ type: 'addActionItem', id: 'ai2', text: '-1+2', owner: '+x' }, han],
+      [{ type: 'setPhase', phase: 'discuss' }, owner],
     ]);
     const lines = actionItemsToCsv(board).split('\r\n');
     expect(lines[1]).toBe(
@@ -1480,5 +1482,91 @@ describe('sealed anonymous cards', () => {
     ]);
     expect(next.reactions).toHaveLength(1);
     expect(next.actionItems[0].cardId).toBe('anon');
+  });
+});
+
+describe('blurred cards stay on the server', () => {
+  const writing = () =>
+    apply(fresh(), [
+      [add('h', 'Han private'), han],
+      [add('l', 'Luke private'), luke],
+      [
+        {
+          type: 'addComment',
+          id: 'hc',
+          cardId: 'h',
+          text: 'Han note',
+          anonymous: false,
+        },
+        han,
+      ],
+    ]);
+
+  it('blanks other people’s cards and their comments for each viewer', () => {
+    const forLuke = redactHidden(writing(), luke);
+    expect(forLuke.cards.map((c) => [c.id, c.text])).toEqual([
+      ['h', ''],
+      ['l', 'Luke private'],
+    ]);
+    expect(forLuke.comments[0].text).toBe('');
+    const forOwner = redactHidden(writing(), owner);
+    expect(forOwner.cards.every((c) => c.text === '')).toBe(true);
+  });
+
+  it('leaves everything once the blur lifts', () => {
+    const board = reduce(writing(), { type: 'setPhase', phase: 'vote' }, owner);
+    expect(redactHidden(board, luke)).toBe(board);
+    const unblurred = reduce(
+      writing(),
+      { type: 'updateSettings', settings: { blurDuringWrite: false } },
+      owner,
+    );
+    expect(redactHidden(unblurred, luke)).toBe(unblurred);
+  });
+
+  it('blanks the text on echoes the viewer cannot read', () => {
+    const board = writing();
+    const edit: Op = { type: 'editCard', id: 'h', text: 'Han private' };
+    expect(redactHiddenOp(board, edit, luke)).toEqual({ ...edit, text: '' });
+    expect(redactHiddenOp(board, edit, han)).toBe(edit);
+    const comment: Op = { type: 'editComment', id: 'hc', text: 'Han note' };
+    expect(redactHiddenOp(board, comment, luke)).toEqual({
+      ...comment,
+      text: '',
+    });
+    const add: Op = {
+      type: 'addComment',
+      id: 'x',
+      cardId: 'h',
+      text: 'y',
+      anonymous: false,
+    };
+    expect(redactHiddenOp(board, add, luke)).toEqual({ ...add, text: '' });
+  });
+
+  it('keeps cards out of every export while they are blurred', () => {
+    const board = apply(writing(), [
+      [
+        {
+          type: 'addActionItem',
+          id: 'ai',
+          text: 'Follow up',
+          owner: '',
+          cardId: 'h',
+        },
+        han,
+      ],
+    ]);
+    for (const format of ['md', 'csv', 'txt'] as const) {
+      const out = exportBoard(board, format, 0);
+      expect(out).not.toContain('private');
+      expect(out).not.toContain('Han note');
+    }
+    expect(exportBoard(board, 'md', 0)).toContain(
+      '_Cards are hidden until the Write phase ends._',
+    );
+    expect(exportBoard(board, 'csv', 0)).toContain('Follow up');
+    const voting = reduce(board, { type: 'setPhase', phase: 'vote' }, owner);
+    expect(exportBoard(voting, 'md', 0)).toContain('Han private');
   });
 });
