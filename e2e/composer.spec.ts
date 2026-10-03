@@ -19,13 +19,23 @@ test('the first click after posting a card lands', async ({ page }) => {
   ).toBeVisible();
 });
 
-test('the anonymous checkbox takes a click before anything is typed', async ({
+test('ticking anonymous before typing keeps the composer open', async ({
   page,
 }) => {
   await createBoard(page);
   const column = page.getByRole('region', { name: 'Went well', exact: true });
-  await column.getByRole('textbox', { name: 'New card' }).click();
+  const box = column.getByRole('textbox', { name: 'New card' });
+  await box.click();
   const anonymous = column.getByRole('checkbox', { name: 'Post anonymously' });
   await anonymous.click();
+  // Past the point where a collapse after the click would have run.
+  await page.evaluate(() => new Promise((done) => setTimeout(done, 100)));
+  await expect(anonymous).toBeVisible();
   await expect(anonymous).toBeChecked();
+
+  await box.fill('Nobody reads the runbook');
+  await box.press('Enter');
+  await expect(card(page, 'Nobody reads the runbook')).toContainText(
+    'Anonymous · yours',
+  );
 });

@@ -29,22 +29,28 @@ export function Composer({
   const [focused, setFocused] = useState(false);
   const id = useId();
   const trimmed = text.trim();
-  const pressing = usePointerPressed();
+  const press = usePointerPress();
 
   /**
-   * Shrink once focus has gone. A press elsewhere takes focus on
-   * pointerdown, and shrinking then would move whatever is under the pointer
-   * before the click lands (a vote, the anonymous checkbox), so wait for the
-   * press to end and its click to fire.
+   * Shrink once focus has left the whole form (the box, the anonymous
+   * checkbox, Post). A press elsewhere takes focus on pointerdown, and
+   * shrinking then would move whatever is under the pointer before the
+   * click lands (a vote, say), so wait for the press to end and its click
+   * to fire. A press inside the form keeps it open even where the browser
+   * does not focus what was pressed (Safari, on buttons and checkboxes).
    */
-  function blur(event: FocusEvent<HTMLTextAreaElement>) {
-    const box = event.currentTarget;
+  function blur(event: FocusEvent<HTMLFormElement>) {
+    const form = event.currentTarget;
+    const pressed = press.current;
     const collapse = () => {
-      if (document.activeElement !== box) {
+      if (
+        !form.contains(document.activeElement) &&
+        !(pressed && form.contains(pressed))
+      ) {
         setFocused(false);
       }
     };
-    if (!pressing.current) {
+    if (!pressed) {
       collapse();
       return;
     }
@@ -75,15 +81,18 @@ export function Composer({
   const expanded = focused || text.length > 0;
 
   return (
-    <form onSubmit={submit} className="grid gap-2">
+    <form
+      onSubmit={submit}
+      onFocus={() => setFocused(true)}
+      onBlur={blur}
+      className="grid gap-2"
+    >
       <Textarea
         aria-label="New card"
         value={text}
         rows={expanded ? 3 : 1}
         maxLength={LIMITS.cardTextMax}
         placeholder="Add a card…"
-        onFocus={() => setFocused(true)}
-        onBlur={blur}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' && !e.shiftKey) {
@@ -132,15 +141,15 @@ export function Composer({
   );
 }
 
-/** Whether a pointer is pressed anywhere on the page right now. */
-function usePointerPressed() {
-  const pressed = useRef(false);
+/** Where the pointer was pressed, while it is down anywhere on the page. */
+function usePointerPress() {
+  const target = useRef<Element | null>(null);
   useEffect(() => {
-    const down = () => {
-      pressed.current = true;
+    const down = (event: PointerEvent) => {
+      target.current = event.target instanceof Element ? event.target : null;
     };
     const up = () => {
-      pressed.current = false;
+      target.current = null;
     };
     // Capture, so a press counts before its pointerdown blurs anything.
     window.addEventListener('pointerdown', down, true);
@@ -152,5 +161,5 @@ function usePointerPressed() {
       window.removeEventListener('pointercancel', up, true);
     };
   }, []);
-  return pressed;
+  return target;
 }

@@ -16,7 +16,10 @@ export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
   forbidOnly: CI,
+  // The retry is for the trace; a test that only passes on it still fails
+  // the run, since a flake here has so far meant a real race in the app.
   retries: CI ? 1 : 0,
+  failOnFlakyTests: CI,
   // Every test drives a live board over WebSockets; a couple at a time keeps
   // one workerd process responsive on a CI runner.
   workers: CI ? 2 : undefined,
