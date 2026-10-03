@@ -92,6 +92,8 @@ export interface ActionItem {
   owner: string;
   done: boolean;
   createdAt: number;
+  /** The card this came out of, if any. Cleared when that card goes. */
+  cardId: string | null;
 }
 
 export interface Participant {

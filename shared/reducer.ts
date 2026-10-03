@@ -2,6 +2,7 @@ import { LIMITS } from './limits';
 import type { Op } from './protocol';
 import { findTemplate } from './templates';
 import {
+  type ActionItem,
   type Actor,
   type Board,
   type Card,
@@ -78,12 +79,45 @@ export function upgradeBoard(board: Board): Board {
     ...board,
     reactions: board.reactions ?? [],
     comments: board.comments ?? [],
+    actionItems: board.actionItems.map((a) => ({
+      ...a,
+      cardId: a.cardId ?? null,
+    })),
     columns: board.columns.map((c) => ({ ...c, prompt: c.prompt ?? '' })),
     done: board.done ?? [],
   };
 }
 
 /* ---------- helpers ---------- */
+
+/**
+ * The card an action item may link to: it has to exist and be readable by
+ * the actor (not blurred for them in Write).
+ */
+function linkableCardId(
+  board: Board,
+  cardId: string | null | undefined,
+  actor: Actor,
+): string | null {
+  if (cardId == null) {
+    return null;
+  }
+  const card = findCard(board, cardId);
+  if (isCardHidden(board, card, actor)) {
+    fail('You cannot link to a card you cannot read yet');
+  }
+  return card.id;
+}
+
+/** Action items keep living after their card goes; only the link drops. */
+function unlinkActionItems(
+  board: Board,
+  removed: ReadonlySet<string>,
+): ActionItem[] {
+  return board.actionItems.map((a) =>
+    a.cardId !== null && removed.has(a.cardId) ? { ...a, cardId: null } : a,
+  );
+}
 
 function canFacilitate(board: Board, actor: Actor): boolean {
   return !board.settings.facilitatorOnly || actor.isOwner;
@@ -324,6 +358,7 @@ export function reduce(
         votes: board.votes.filter((v) => v.cardId !== op.id),
         reactions: board.reactions.filter((r) => r.cardId !== op.id),
         comments: board.comments.filter((c) => c.cardId !== op.id),
+        actionItems: unlinkActionItems(board, new Set([op.id])),
       };
     }
 
@@ -659,6 +694,7 @@ export function reduce(
         votes: board.votes.filter((v) => !removed.has(v.cardId)),
         reactions: board.reactions.filter((r) => !removed.has(r.cardId)),
         comments: board.comments.filter((c) => !removed.has(c.cardId)),
+        actionItems: unlinkActionItems(board, removed),
       };
     }
 
@@ -669,6 +705,7 @@ export function reduce(
       if (board.actionItems.length >= LIMITS.actionItemsMax) {
         fail('This board has reached its action item limit');
       }
+      const cardId = linkableCardId(board, op.cardId, actor);
       return {
         ...board,
         actionItems: [
@@ -679,6 +716,7 @@ export function reduce(
             owner: op.owner,
             done: false,
             createdAt: now,
+            cardId,
           },
         ],
       };
@@ -688,10 +726,22 @@ export function reduce(
       if (!board.actionItems.some((a) => a.id === op.id)) {
         fail('That action item is gone');
       }
+      // Leaving `cardId` out keeps the current link; `null` removes it.
+      const cardId =
+        op.cardId === undefined
+          ? undefined
+          : linkableCardId(board, op.cardId, actor);
       return {
         ...board,
         actionItems: board.actionItems.map((a) =>
-          a.id === op.id ? { ...a, text: op.text, owner: op.owner } : a,
+          a.id === op.id
+            ? {
+                ...a,
+                text: op.text,
+                owner: op.owner,
+                ...(cardId === undefined ? {} : { cardId }),
+              }
+            : a,
         ),
       };
     }

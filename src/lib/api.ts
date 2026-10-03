@@ -1,3 +1,4 @@
+import type { ExportFormat } from '#shared/export';
 import type { BoardMeta, CreateBoardResponse } from '#shared/protocol';
 
 /** The three HTTP calls. Everything else happens over the WebSocket. */
@@ -55,8 +56,8 @@ export function deleteBoard(code: string, ownerToken: string): Promise<void> {
   });
 }
 
-export function exportUrl(code: string): string {
-  return `/api/boards/${encodeURIComponent(code)}/export.md`;
+export function exportUrl(code: string, format: ExportFormat = 'md'): string {
+  return `/api/boards/${encodeURIComponent(code)}/export.${format}`;
 }
 
 export function socketUrl(

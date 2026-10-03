@@ -14,7 +14,10 @@ import { LIMITS } from '#shared/limits';
 import type { Op, You } from '#shared/protocol';
 import { votesUsed } from '#shared/reducer';
 import type { Board } from '#shared/types';
-import { ActionItemsSheet } from '@/components/board/ActionItemsSheet';
+import {
+  ActionItemsSheet,
+  type ActionsSheetState,
+} from '@/components/board/ActionItemsSheet';
 import { DeleteBoardDialog } from '@/components/board/DeleteBoardDialog';
 import { ExportDialog } from '@/components/board/ExportDialog';
 import { PhaseStepper } from '@/components/board/PhaseStepper';
@@ -43,6 +46,8 @@ interface BoardToolbarProps {
   you: You;
   ownerToken: string | null;
   dispatch: (op: Op) => void;
+  actions: ActionsSheetState;
+  onActionsChange: (next: ActionsSheetState) => void;
 }
 
 /** Title, code, expiry, who is here, the phase stepper, timer and actions. */
@@ -51,13 +56,15 @@ export function BoardToolbar({
   you,
   ownerToken,
   dispatch,
+  actions,
+  onActionsChange,
 }: BoardToolbarProps) {
   const now = useNow(30_000);
   const [sharing, setSharing] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [settings, setSettings] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [actions, setActions] = useState(false);
+  const openActionsSheet = () => onActionsChange({ open: true, cardId: null });
 
   const canFacilitate = !board.settings.facilitatorOnly || you.isOwner;
   const remainingVotes =
@@ -70,11 +77,11 @@ export function BoardToolbar({
   useEffect(() => {
     if (board.phase === 'discuss' && lastPhase.current !== 'discuss') {
       if (window.matchMedia('(min-width: 1024px)').matches) {
-        setActions(true);
+        onActionsChange({ open: true, cardId: null });
       }
     }
     lastPhase.current = board.phase;
-  }, [board.phase]);
+  }, [board.phase, onActionsChange]);
 
   return (
     <div className="border-b">
@@ -145,7 +152,7 @@ export function BoardToolbar({
                   <DownloadSimpleIcon />
                   Export as Markdown
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setActions(true)}>
+                <DropdownMenuItem onClick={openActionsSheet}>
                   <CheckSquareIcon />
                   Action items
                   {openActions > 0 && (
@@ -214,7 +221,7 @@ export function BoardToolbar({
               variant={board.phase === 'discuss' ? 'secondary' : 'ghost'}
               size="sm"
               className="press"
-              onClick={() => setActions(true)}
+              onClick={openActionsSheet}
             >
               <CheckSquareIcon data-icon="inline-start" />
               Action items
@@ -265,9 +272,10 @@ export function BoardToolbar({
         board={board}
       />
       <ActionItemsSheet
-        open={actions}
-        onOpenChange={setActions}
+        state={actions}
+        onStateChange={onActionsChange}
         board={board}
+        you={you}
         dispatch={dispatch}
       />
       {you.isOwner && (

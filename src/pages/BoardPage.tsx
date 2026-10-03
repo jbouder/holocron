@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Op } from '#shared/protocol';
+import type { ActionsSheetState } from '@/components/board/ActionItemsSheet';
+import { AddActionForCard } from '@/components/board/action-link';
 import { BoardToolbar } from '@/components/board/BoardToolbar';
 import { Columns } from '@/components/board/Columns';
 import { NameDialog } from '@/components/NameDialog';
@@ -22,6 +24,12 @@ export function BoardPage({ code }: { code: string }) {
   const { active } = useMotion();
   const [ownerToken] = useState(() => getOwnerToken(code));
   const [checked, setChecked] = useState(false);
+  // The action items sheet lives in the toolbar, but a card's menu opens it
+  // too (with the new item linked to that card), so its state lives here.
+  const [actions, setActions] = useState<ActionsSheetState>({
+    open: false,
+    cardId: null,
+  });
   const connection = useBoard(code, identity, ownerToken);
   const { status, board, you, send, rejection } = connection;
 
@@ -139,8 +147,14 @@ export function BoardPage({ code }: { code: string }) {
             you={you}
             ownerToken={ownerToken}
             dispatch={dispatch}
+            actions={actions}
+            onActionsChange={setActions}
           />
-          <Columns board={board} you={you} dispatch={dispatch} />
+          <AddActionForCard.Provider
+            value={(cardId) => setActions({ open: true, cardId })}
+          >
+            <Columns board={board} you={you} dispatch={dispatch} />
+          </AddActionForCard.Provider>
         </>
       ) : (
         <BoardSkeleton waiting={checked && !needsName} />

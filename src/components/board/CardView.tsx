@@ -1,5 +1,6 @@
 import {
   ArrowFatUpIcon,
+  CheckSquareIcon,
   DotsSixVerticalIcon,
   DotsThreeIcon,
   MinusIcon,
@@ -35,6 +36,7 @@ import type { useCardDrag } from '@/hooks/useCardDrag';
 import { animateOut } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import { useMotion } from '@/providers/MotionProvider';
+import { useAddActionForCard } from './action-link';
 import { CommentThread, CommentToggle, commentsOn } from './CardComments';
 import { ReactionChips, ReactionPicker } from './CardReactions';
 
@@ -71,6 +73,9 @@ export function CardView({
   const canEdit = mine || you.isOwner;
   const canArrange = canEdit || !board.settings.facilitatorOnly || you.isOwner;
   const blurred = isCardHidden(board, card, you);
+  // Anyone who can read the card can turn it into an action item.
+  const canAddAction = !blurred;
+  const addActionFor = useAddActionForCard();
   const [threadOpen, setThreadOpen] = useState(false);
   const threadId = useId();
   const commentCount = commentsOn(board, card).length;
@@ -198,7 +203,7 @@ export function CardView({
           </p>
         )}
 
-        {canEdit && !editing && (
+        {(canEdit || canAddAction) && !editing && (
           <DropdownMenu>
             <DropdownMenuTrigger
               render={
@@ -219,7 +224,13 @@ export function CardView({
                   Edit
                 </DropdownMenuItem>
               )}
-              {card.groupId !== null && (
+              {canAddAction && (
+                <DropdownMenuItem onClick={() => addActionFor(card.id)}>
+                  <CheckSquareIcon />
+                  Add action item
+                </DropdownMenuItem>
+              )}
+              {card.groupId !== null && canArrange && (
                 <DropdownMenuItem
                   onClick={() => dispatch({ type: 'ungroupCard', id: card.id })}
                 >
@@ -227,32 +238,42 @@ export function CardView({
                   Ungroup
                 </DropdownMenuItem>
               )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onClick={remove}>
-                <TrashIcon />
-                Delete
-              </DropdownMenuItem>
+              {canEdit && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem variant="destructive" onClick={remove}>
+                    <TrashIcon />
+                    Delete
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         )}
-        {!canEdit && card.groupId !== null && canArrange && !editing && (
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  aria-label="Ungroup"
-                  className="press -mt-1 -mr-1.5 shrink-0 opacity-50 group-focus-within:opacity-100 group-hover:opacity-100 hover-none:opacity-100"
-                  onClick={() => dispatch({ type: 'ungroupCard', id: card.id })}
-                />
-              }
-            >
-              <StackSimpleIcon />
-            </TooltipTrigger>
-            <TooltipContent>Ungroup</TooltipContent>
-          </Tooltip>
-        )}
+        {!canEdit &&
+          !canAddAction &&
+          card.groupId !== null &&
+          canArrange &&
+          !editing && (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label="Ungroup"
+                    className="press -mt-1 -mr-1.5 shrink-0 opacity-50 group-focus-within:opacity-100 group-hover:opacity-100 hover-none:opacity-100"
+                    onClick={() =>
+                      dispatch({ type: 'ungroupCard', id: card.id })
+                    }
+                  />
+                }
+              >
+                <StackSimpleIcon />
+              </TooltipTrigger>
+              <TooltipContent>Ungroup</TooltipContent>
+            </Tooltip>
+          )}
       </div>
 
       {!blurred && (
