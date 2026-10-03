@@ -118,6 +118,8 @@ export const OpSchema = z.discriminatedUnion('type', [
     title: text(LIMITS.titleMax),
   }),
   z.object({ type: z.literal('setName'), name: text(LIMITS.nameMax) }),
+  /** The actor's own "I'm done writing" signal. */
+  z.object({ type: z.literal('setDone'), done: z.boolean() }),
 ]);
 
 export type Op = z.infer<typeof OpSchema>;

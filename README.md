@@ -43,7 +43,9 @@ WebSockets, and wipes itself on an alarm.
 - **Timer.** 1–15 minute presets, counted down on every screen. At zero a
   short chime plays and the tab title flags it (switchable in Preferences).
 - **Action items.** Text, optional owner, done checkbox. Exported with the board.
-- **Presence.** Who is here, who stepped away, who owns the board.
+- **Presence.** Who is here, who stepped away, who owns the board. In Write,
+  people mark themselves done ("3 of 5 done"); in Vote, each avatar shows how
+  many votes that person has left, so the facilitator knows when to move on.
 - **Export.** Markdown download or copy: columns, grouped cards with votes
   and reactions, comments, action items. Same output from the UI and the
   `/export.md` endpoint.

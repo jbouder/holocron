@@ -161,7 +161,11 @@ export function HelpPage() {
             <Term name="Write">
               Everyone adds cards. Other people's cards are blurred so nobody
               anchors on the first thing posted (the owner can turn this off).
-              Voting is closed.
+              Voting is closed. When you have nothing more to add, press{' '}
+              <strong>I'm done</strong>: a check appears on your avatar and the
+              count next to the avatars ("3 of 5 done") tells the facilitator
+              when to move on. Press it again to take it back. It resets when
+              the phase changes.
             </Term>
             <Term name="Vote">
               Cards are revealed. Each person has a budget of votes (
@@ -169,6 +173,9 @@ export function HelpPage() {
               anything from {LIMITS.votesPerPersonMin} to{' '}
               {LIMITS.votesPerPersonMax}) to spend on the cards that matter
               most. You can put several votes on one card and take them back.
+              Each avatar shows how many votes that person has left, and the
+              count next to the avatars shows who has spent them all. Where
+              anyone's votes went is never shown there.
             </Term>
             <Term name="Discuss">
               Columns sort by votes so the top items are at the top. Vote counts

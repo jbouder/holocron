@@ -64,6 +64,7 @@ export function createBoard(input: CreateBoardInput): Board {
     comments: [],
     actionItems: [],
     participants: [{ id: input.ownerId, name: input.ownerName, online: false }],
+    done: [],
   };
 }
 
@@ -76,6 +77,7 @@ export function upgradeBoard(board: Board): Board {
     ...board,
     reactions: board.reactions ?? [],
     comments: board.comments ?? [],
+    done: board.done ?? [],
   };
 }
 
@@ -187,6 +189,14 @@ export function votesUsed(board: Board, participantId: string): number {
     }
   }
   return used;
+}
+
+/** Votes a participant can still spend. Says nothing about where they went. */
+export function votesLeft(board: Board, participantId: string): number {
+  return Math.max(
+    0,
+    board.settings.votesPerPerson - votesUsed(board, participantId),
+  );
 }
 
 export function votesFor(board: Board, cardId: string): number {
@@ -560,7 +570,11 @@ export function reduce(
 
     case 'setPhase': {
       requireFacilitator(board, actor);
-      return { ...board, phase: op.phase };
+      if (op.phase === board.phase) {
+        return board;
+      }
+      // "Done" means done with this phase; a new phase starts everyone over.
+      return { ...board, phase: op.phase, done: [] };
     }
 
     case 'setTimer': {
@@ -686,6 +700,24 @@ export function reduce(
     case 'renameBoard': {
       requireFacilitator(board, actor);
       return { ...board, title: op.title };
+    }
+
+    case 'setDone': {
+      if (actor.id === '') {
+        return board; // a redacted echo names no one to mark
+      }
+      if (board.phase !== 'write') {
+        fail('You can only mark yourself done while writing');
+      }
+      if (op.done === board.done.includes(actor.id)) {
+        return board;
+      }
+      return {
+        ...board,
+        done: op.done
+          ? [...board.done, actor.id]
+          : board.done.filter((id) => id !== actor.id),
+      };
     }
 
     case 'setName': {

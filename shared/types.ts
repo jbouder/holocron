@@ -123,6 +123,11 @@ export interface Board {
   comments: Comment[];
   actionItems: ActionItem[];
   participants: Participant[];
+  /**
+   * Participants who said "I'm done" in the current phase. Only settable in
+   * Write; cleared whenever the phase changes.
+   */
+  done: string[];
 }
 
 /**
