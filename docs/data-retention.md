@@ -81,10 +81,12 @@ export history, or backup. What a team wants to keep, it exports (Markdown,
 CSV of action items, or a plain-text summary) before the reset.
 
 Request logs (status, URL, timing) are kept according to your Cloudflare
-account's Workers Logs retention. The participant id and secret, the display
-name and, for the owner, the owner token are sent as query parameters on the
-WebSocket URL, so a deployment with Workers Logs enabled has them in its
-request logs for as long as that retention lasts. The application itself logs one line
+account's Workers Logs retention. The WebSocket URL carries the participant
+id and display name, so a deployment with Workers Logs enabled has those in
+its request logs for as long as that retention lasts. Both are already
+public on the board. The participant secret and the owner token never
+travel on a URL: the socket sends them in its first message, which is not
+logged. The application itself logs one line
 per unexpected server error and nothing per successful request.
 
 ## Who can see a board

@@ -5,6 +5,7 @@ import { LIMITS } from '#shared/limits';
 import {
   type BoardMeta,
   type BoardOp,
+  type ClientMessage,
   ClientMessageSchema,
   type HandoffResponse,
   type Op,
@@ -46,8 +47,16 @@ interface Attachment {
   id: string;
   name: string;
   isOwner: boolean;
-  /** When the socket joined, for replacing a participant's oldest tab. */
+  /**
+   * When the socket opened, for the hello timeout, and then when it was
+   * seated, for replacing a participant's oldest tab.
+   */
   openedAt?: number;
+  /**
+   * Accepted but not seated: it has not sent its `hello` yet. It is not
+   * online, is sent nothing, and may send nothing else.
+   */
+  pending?: boolean;
 }
 
 export interface CreateInput {
@@ -101,6 +110,8 @@ export class BoardObject extends DurableObject<Bindings> {
   private handoffMisses: number[] = [];
   /** Per-socket timestamps of recent ops, for the flood limit. */
   private recent = new WeakMap<WebSocket, number[]>();
+  /** A pending socket's `hello` while it is checked; later messages wait. */
+  private greetings = new WeakMap<WebSocket, Promise<void>>();
   /**
    * The newest socket's `openedAt`. Lost on hibernation, which is harmless:
    * the clock has moved on by the time the object wakes.
@@ -186,7 +197,9 @@ export class BoardObject extends DurableObject<Bindings> {
     const message: ServerMessage = { type: reason };
     for (const ws of this.ctx.getWebSockets()) {
       try {
-        ws.send(JSON.stringify(message));
+        if (!this.attachmentOf(ws)?.pending) {
+          ws.send(JSON.stringify(message));
+        }
         ws.close(1000, reason);
       } catch {
         // Already closed.
@@ -360,7 +373,7 @@ export class BoardObject extends DurableObject<Bindings> {
     );
     // Live sockets follow without reconnecting: the old token's sockets
     // lose ownership, the new owner's gain it, and each gets a fresh `you`.
-    for (const ws of this.ctx.getWebSockets()) {
+    for (const ws of this.seatedSockets()) {
       const attachment = ws.deserializeAttachment() as Attachment | null;
       if (!attachment || attachment.isOwner === (attachment.id === id)) {
         continue;
@@ -382,6 +395,11 @@ export class BoardObject extends DurableObject<Bindings> {
 
   /* ---------- WebSocket upgrade ---------- */
 
+  /**
+   * Accept a socket as pending. The URL carries only the participant id and
+   * name, both public on the board; the credentials come in the socket's
+   * first message (`hello`, see `seat()`), so request logs never hold them.
+   */
   async fetch(request: Request): Promise<Response> {
     await this.expireIfDue();
     if (request.headers.get('Upgrade') !== 'websocket') {
@@ -394,30 +412,80 @@ export class BoardObject extends DurableObject<Bindings> {
     }
     const url = new URL(request.url);
     const id = (url.searchParams.get('pid') ?? '').slice(0, 64);
-    const secret = url.searchParams.get('secret') ?? '';
     const name = (url.searchParams.get('name') ?? '')
       .trim()
       .slice(0, LIMITS.nameMax);
-    const token = url.searchParams.get('token');
-    if (!id || !name || !secret || secret.length > 128) {
-      return new Response('Missing participant id, secret or name', {
-        status: 400,
-      });
+    if (!id || !name) {
+      return new Response('Missing participant id or name', { status: 400 });
     }
-    const isOwner =
-      token !== null && sameHash(await sha256(token), this.ownerHash);
+
+    this.reapPending();
+    // Past the cap the newest wins, as with tabs. A real client says hello
+    // as soon as it opens, so the oldest waiting socket is the one least
+    // likely to ever say it.
+    const waiting = this.pendingSockets();
+    for (const ws of waiting.slice(
+      0,
+      Math.max(0, waiting.length - LIMITS.pendingSocketsMax + 1),
+    )) {
+      refuse(ws, 'hello');
+    }
+
+    const pair = new WebSocketPair();
+    const [client, server] = Object.values(pair);
+    const attachment: Attachment = {
+      id,
+      name,
+      isOwner: false,
+      openedAt: this.stamp(),
+      pending: true,
+    };
+    server.serializeAttachment(attachment);
+    this.ctx.acceptWebSocket(server);
+    return new Response(null, { status: 101, webSocket: client });
+  }
+
+  /**
+   * Seat a pending socket with the credentials from its `hello`: the
+   * identity binding, the owner check, the socket and seat limits. Refusals
+   * close it with a reason the client keys on (it stops retrying).
+   */
+  private async seat(
+    ws: WebSocket,
+    pending: Attachment,
+    secret: string,
+    token: string | null,
+  ) {
+    const [secretHash, tokenHash] = await Promise.all([
+      sha256(secret),
+      token === null ? null : sha256(token),
+    ]);
+    // From here to the binding nothing awaits, so two first sockets for one
+    // id cannot both bind.
+    if (!this.board || ws.readyState !== WebSocket.READY_STATE_OPEN) {
+      return;
+    }
+    const { id, name } = pending;
+    const isOwner = tokenHash !== null && sameHash(tokenHash, this.ownerHash);
+
+    // An id already bound to another browser's secret is an impostor.
+    const bound = this.secrets[id];
+    if (bound !== undefined && !sameHash(secretHash, bound)) {
+      refuse(ws, 'identity');
+      return;
+    }
 
     // Counted before this socket joins them, and only sockets still open:
     // one this object already closed may linger until its peer answers.
-    const open = this.ctx
-      .getWebSockets()
-      .filter((ws) => ws.readyState === WebSocket.READY_STATE_OPEN);
+    const open = this.seatedSockets().filter(
+      (other) => other.readyState === WebSocket.READY_STATE_OPEN,
+    );
     // Past the tab cap the newest tab wins: the participant's oldest
     // sockets make way. After a network cut the server may still hold every
     // old socket, half-open and unnoticed, so refusing the newcomer would
     // shut out someone with fewer live tabs than the cap.
     const mine = open
-      .filter((ws) => this.attachmentOf(ws)?.id === id)
+      .filter((other) => this.attachmentOf(other)?.id === id)
       .sort(
         (a, b) =>
           (this.attachmentOf(a)?.openedAt ?? 0) -
@@ -430,55 +498,34 @@ export class BoardObject extends DurableObject<Bindings> {
     // The board cap never shuts the owner out: a crowd of tabs must not stop
     // them running (or ending) the retro. Tabs this join replaces don't
     // count against it.
-    const full = open.length - replaced.length >= LIMITS.socketsMax && !isOwner;
+    if (open.length - replaced.length >= LIMITS.socketsMax && !isOwner) {
+      refuse(ws, 'full');
+      return;
+    }
 
-    const pair = new WebSocketPair();
-    const [client, server] = Object.values(pair);
-    // Strictly increasing: the runtime's clock can stand still across joins
-    // that come in quick succession, and ties would hide which tab is oldest.
-    this.lastOpenedAt = Math.max(Date.now(), this.lastOpenedAt + 1);
+    // Make sure the participant exists with this name. Going through the
+    // reducer persists it and tells everyone else; the joiner learns it
+    // from the snapshot, and is sent nothing while pending anyway.
     const attachment: Attachment = {
       id,
       name,
       isOwner,
-      openedAt: this.lastOpenedAt,
+      openedAt: this.stamp(),
     };
-    server.serializeAttachment(attachment);
-    this.ctx.acceptWebSocket(server);
-
-    // An id already bound to another browser's secret is an impostor. The
-    // close reason is what the client keys on; it never retries this.
-    const secretHash = await sha256(secret);
-    const bound = this.secrets[id];
-    if (bound !== undefined && !sameHash(secretHash, bound)) {
-      server.close(1008, 'identity');
-      return new Response(null, { status: 101, webSocket: client });
-    }
-    // From here to the binding nothing awaits, so two first sockets for one
-    // id cannot both bind.
-
-    // The close reasons are what the client keys on (it stops retrying).
-    if (full) {
-      server.close(1008, 'full');
-      return new Response(null, { status: 101, webSocket: client });
-    }
-
-    // Make sure the participant exists with this name. Going through the
-    // reducer persists it and tells everyone else.
     const actor = this.actorFor(attachment);
     const known = this.board.participants.find((p) => p.id === id);
     let secretsChanged = false;
     if (!known && this.board.participants.length >= LIMITS.participantsMax) {
       const idle = this.idleSeat();
       if (!idle) {
-        server.close(1008, 'full');
-        return new Response(null, { status: 101, webSocket: client });
+        refuse(ws, 'full');
+        return;
       }
       this.apply(
         { type: 'releaseSeat', participantId: idle },
         { id: '', name: '', isOwner: false },
         `release-${crypto.randomUUID()}`,
-        [server],
+        [],
       );
       // A binding only protects anonymous items; without any, let it go so
       // seats churning through a full board do not pile bindings up.
@@ -493,11 +540,11 @@ export class BoardObject extends DurableObject<Bindings> {
     }
     if (!known || known.name !== name) {
       try {
-        this.apply({ type: 'setName', name }, actor, `join-${id}`, [server]);
+        this.apply({ type: 'setName', name }, actor, `join-${id}`, []);
       } catch (error) {
         if (error instanceof OpError) {
-          server.close(1008, error.message);
-          return new Response(null, { status: 101, webSocket: client });
+          refuse(ws, error.message);
+          return;
         }
         throw error;
       }
@@ -508,24 +555,21 @@ export class BoardObject extends DurableObject<Bindings> {
       this.secrets[id] = secretHash;
       secretsChanged = true;
     }
-    if (secretsChanged) {
-      await this.ctx.storage.put(SECRETS_KEY, this.secrets);
-    }
+    ws.serializeAttachment(attachment);
 
     // Only once this socket is in: a refused join replaces nothing. The
     // replaced tab stops retrying, so two tabs never take turns evicting
     // each other.
-    for (const ws of replaced) {
-      try {
-        ws.close(1008, 'replaced');
-      } catch {
-        // Already closing.
-      }
+    for (const other of replaced) {
+      refuse(other, 'replaced');
     }
 
-    this.sendSnapshot(server, actor);
+    this.sendSnapshot(ws, actor);
     this.broadcastPresence();
-    return new Response(null, { status: 101, webSocket: client });
+    if (secretsChanged) {
+      // The output gate holds the snapshot until the binding is stored.
+      await this.ctx.storage.put(SECRETS_KEY, this.secrets);
+    }
   }
 
   async webSocketMessage(ws: WebSocket, raw: string | ArrayBuffer) {
@@ -534,23 +578,38 @@ export class BoardObject extends DurableObject<Bindings> {
       ws.close(1000, 'expired');
       return;
     }
-    if (typeof raw !== 'string') {
+    this.reapPending();
+    // Anything sent right behind a hello waits until the hello is settled.
+    await this.greetings.get(ws);
+    const attachment = this.attachmentOf(ws);
+    if (!attachment || ws.readyState !== WebSocket.READY_STATE_OPEN) {
       return;
     }
-    const attachment = ws.deserializeAttachment() as Attachment;
-    const actor = this.actorFor(attachment);
+    const message = parseClientMessage(raw);
 
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
+    if (attachment.pending) {
+      // A pending socket's first message is its hello, or it goes.
+      if (message?.type !== 'hello') {
+        refuse(ws, 'hello');
+        return;
+      }
+      const greeting = this.seat(
+        ws,
+        attachment,
+        message.secret,
+        message.token ?? null,
+      );
+      this.greetings.set(ws, greeting);
+      try {
+        await greeting;
+      } finally {
+        this.greetings.delete(ws);
+      }
       return;
     }
-    const result = ClientMessageSchema.safeParse(parsed);
-    if (!result.success) {
-      return;
+    if (!message || message.type === 'hello') {
+      return; // garbage, or a second hello
     }
-    const message = result.data;
 
     if (!this.allow(ws)) {
       // Refuse rather than drop, so the sender's optimistic copy is rolled
@@ -564,6 +623,8 @@ export class BoardObject extends DurableObject<Bindings> {
       }
       return;
     }
+
+    const actor = this.actorFor(attachment);
 
     if (message.type === 'sync') {
       this.sendSnapshot(ws, actor);
@@ -596,6 +657,7 @@ export class BoardObject extends DurableObject<Bindings> {
 
   async webSocketClose(ws: WebSocket, code: number, reason: string) {
     await this.expireIfDue();
+    this.reapPending();
     try {
       ws.close(code, reason);
     } catch {
@@ -606,6 +668,7 @@ export class BoardObject extends DurableObject<Bindings> {
 
   async webSocketError(ws: WebSocket) {
     await this.expireIfDue();
+    this.reapPending();
     try {
       ws.close(1011, 'error');
     } catch {
@@ -647,7 +710,7 @@ export class BoardObject extends DurableObject<Bindings> {
       ? { id: '', name: '', ...secret }
       : { id: actor.id, name: actor.name };
     const skip = new Set(except);
-    for (const ws of this.ctx.getWebSockets()) {
+    for (const ws of this.seatedSockets()) {
       if (skip.has(ws)) {
         continue;
       }
@@ -666,7 +729,7 @@ export class BoardObject extends DurableObject<Bindings> {
     // The blur lifted (or came back): echoes cannot carry the text everyone
     // can now read, so everyone gets the board again.
     if (blursCards(before) !== blursCards(next)) {
-      for (const ws of this.ctx.getWebSockets()) {
+      for (const ws of this.seatedSockets()) {
         const to = ws.deserializeAttachment() as Attachment | null;
         if (to && !skip.has(ws)) {
           this.sendSnapshot(ws, this.actorFor(to));
@@ -741,6 +804,52 @@ export class BoardObject extends DurableObject<Bindings> {
     return ws.deserializeAttachment() as Attachment | null;
   }
 
+  /** Every socket that said hello and was seated. Only these hear anything. */
+  private seatedSockets(): WebSocket[] {
+    return this.ctx.getWebSockets().filter((ws) => {
+      const attachment = this.attachmentOf(ws);
+      return attachment !== null && !attachment.pending;
+    });
+  }
+
+  /** Open sockets still waiting for their hello, oldest first. */
+  private pendingSockets(): WebSocket[] {
+    return this.ctx
+      .getWebSockets()
+      .filter(
+        (ws) =>
+          ws.readyState === WebSocket.READY_STATE_OPEN &&
+          this.attachmentOf(ws)?.pending,
+      )
+      .sort(
+        (a, b) =>
+          (this.attachmentOf(a)?.openedAt ?? 0) -
+          (this.attachmentOf(b)?.openedAt ?? 0),
+      );
+  }
+
+  /**
+   * Close sockets that never said hello in time. Hibernation rules out a
+   * timer, so every event checks.
+   */
+  private reapPending(now = Date.now()) {
+    for (const ws of this.pendingSockets()) {
+      const openedAt = this.attachmentOf(ws)?.openedAt ?? 0;
+      if (now - openedAt >= LIMITS.helloTimeoutMs && !this.greetings.has(ws)) {
+        refuse(ws, 'hello');
+      }
+    }
+  }
+
+  /**
+   * Strictly increasing: the runtime's clock can stand still across joins
+   * that come in quick succession, and ties would hide which tab is oldest.
+   */
+  private stamp(): number {
+    this.lastOpenedAt = Math.max(Date.now(), this.lastOpenedAt + 1);
+    return this.lastOpenedAt;
+  }
+
   private actorFor(attachment: Attachment): Actor {
     return {
       id: attachment.id,
@@ -778,7 +887,7 @@ export class BoardObject extends DurableObject<Bindings> {
 
   private onlineIds(): Set<string> {
     const ids = new Set<string>();
-    for (const ws of this.ctx.getWebSockets()) {
+    for (const ws of this.seatedSockets()) {
       const attachment = ws.deserializeAttachment() as Attachment | null;
       if (attachment) {
         ids.add(attachment.id);
@@ -806,7 +915,7 @@ export class BoardObject extends DurableObject<Bindings> {
       type: 'presence',
       participants: this.withPresence(this.board).participants,
     };
-    for (const ws of this.ctx.getWebSockets()) {
+    for (const ws of this.seatedSockets()) {
       this.send(ws, message);
     }
   }
@@ -822,6 +931,27 @@ export class BoardObject extends DurableObject<Bindings> {
     stamps.push(now);
     this.recent.set(ws, stamps);
     return true;
+  }
+}
+
+function parseClientMessage(raw: string | ArrayBuffer): ClientMessage | null {
+  if (typeof raw !== 'string') {
+    return null;
+  }
+  try {
+    const result = ClientMessageSchema.safeParse(JSON.parse(raw));
+    return result.success ? result.data : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Close a socket with a reason the client keys on. */
+function refuse(ws: WebSocket, reason: string) {
+  try {
+    ws.close(1008, reason);
+  } catch {
+    // Already closing.
   }
 }
 

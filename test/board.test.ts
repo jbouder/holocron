@@ -267,7 +267,7 @@ interface Client {
   send(op: Op): string;
 }
 
-/** Open a participant's socket straight against the object and buffer it. */
+/** Open a participant's socket and say hello, as the app does. */
 async function join(
   code: string,
   pid: string,
@@ -275,13 +275,21 @@ async function join(
   token?: string,
   secret = `secret-of-${pid}`,
 ): Promise<Client> {
+  const client = await open(code, pid, name);
+  client.ws.send(
+    JSON.stringify({ type: 'hello', secret, ...(token ? { token } : {}) }),
+  );
+  return client;
+}
+
+/**
+ * Open a socket straight against the object and buffer it, without the
+ * hello: it stays pending until it sends one.
+ */
+async function open(code: string, pid: string, name: string): Promise<Client> {
   const url = new URL(`http://holocron.test/ws/${code}`);
   url.searchParams.set('pid', pid);
-  url.searchParams.set('secret', secret);
   url.searchParams.set('name', name);
-  if (token) {
-    url.searchParams.set('token', token);
-  }
   const response = await stubFor(code).fetch(url, {
     headers: { Upgrade: 'websocket' },
   });
@@ -332,6 +340,11 @@ async function join(
       return opId;
     },
   };
+}
+
+/** Resolves with the socket's close event. */
+function closeOf(client: Client): Promise<CloseEvent> {
+  return new Promise((resolve) => client.ws.addEventListener('close', resolve));
 }
 
 describe('anonymity on the wire', () => {
@@ -608,11 +621,10 @@ describe('participant identity', () => {
     });
   });
 
-  it('requires a secret', async () => {
+  it('requires an id and a name on the URL', async () => {
     const created = await createBoard();
     const url = new URL(`http://holocron.test/ws/${created.code}`);
     url.searchParams.set('pid', 'han');
-    url.searchParams.set('name', 'Han');
     const response = await stubFor(created.code).fetch(url, {
       headers: { Upgrade: 'websocket' },
     });
@@ -1087,13 +1099,9 @@ describe('code probing', () => {
     for (let i = 0; i < 300; i++) {
       await from(ip, '/api/boards/ZZZZZZ');
     }
-    const response = await from(
-      ip,
-      `/ws/${created.code}?pid=p&secret=s&name=N`,
-      {
-        headers: { Upgrade: 'websocket' },
-      },
-    );
+    const response = await from(ip, `/ws/${created.code}?pid=p&name=N`, {
+      headers: { Upgrade: 'websocket' },
+    });
     expect(response.status).toBe(101);
     const ws = response.webSocket as WebSocket;
     const closed = new Promise<CloseEvent>((resolve) =>
@@ -1107,13 +1115,6 @@ describe('code probing', () => {
 });
 
 describe('crowded boards', () => {
-  /** Resolves with the socket's close event. */
-  function closeOf(client: Client): Promise<CloseEvent> {
-    return new Promise((resolve) =>
-      client.ws.addEventListener('close', resolve),
-    );
-  }
-
   /** Seat everyone up to the limit (the owner is already seated). */
   async function fill(code: string): Promise<Client[]> {
     const clients: Client[] = [];
@@ -1434,5 +1435,171 @@ describe('credential hardening', () => {
       false,
     );
     expect(await stub.meta()).toBeNull();
+  });
+});
+
+describe('the hello handshake', () => {
+  it('ignores credentials on the URL: only a hello seats a socket', async () => {
+    const created = await createBoard();
+    const url = new URL(`http://holocron.test/ws/${created.code}`);
+    url.searchParams.set('pid', 'owner-1');
+    url.searchParams.set('name', 'Leia');
+    url.searchParams.set('secret', 'secret-of-owner-1');
+    url.searchParams.set('token', created.ownerToken);
+    const response = await stubFor(created.code).fetch(url, {
+      headers: { Upgrade: 'websocket' },
+    });
+    expect(response.status).toBe(101);
+    const ws = response.webSocket as WebSocket;
+    const heard: unknown[] = [];
+    ws.addEventListener('message', (event) => heard.push(event.data));
+    ws.accept();
+
+    const watcher = await join(created.code, 'watch', 'Watcher');
+    const snapshot = await watcher.next('snapshot');
+    expect(
+      snapshot.board.participants.find((p) => p.id === 'owner-1')?.online,
+    ).toBe(false);
+    expect(heard).toEqual([]);
+  });
+
+  it('keeps a pending socket out of presence and tells it nothing', async () => {
+    const created = await createBoard();
+    const watcher = await join(created.code, 'watch', 'Watcher');
+    await watcher.next('snapshot');
+    const han = await open(created.code, 'han', 'Han');
+    // Something happens on the board while Han is pending.
+    const seen = watcher.messages.length;
+    watcher.send({
+      type: 'addCard',
+      id: 'c',
+      columnId: 'col-1',
+      text: 'Hello',
+      anonymous: false,
+    });
+    await watcher.next('op', seen);
+    expect(han.messages).toEqual([]);
+    expect((await stubFor(created.code).meta())?.participants).toBe(1);
+    expect(
+      watcher.messages.some(
+        (m) =>
+          m.type === 'presence' && m.participants.some((p) => p.id === 'han'),
+      ),
+    ).toBe(false);
+
+    // The hello seats Han, and only then do they count.
+    const before = watcher.messages.length;
+    han.ws.send(JSON.stringify({ type: 'hello', secret: 'secret-of-han' }));
+    expect((await han.next('snapshot')).you.id).toBe('han');
+    const presence = await watcher.next('presence', before);
+    expect(presence.participants.find((p) => p.id === 'han')?.online).toBe(
+      true,
+    );
+    expect((await stubFor(created.code).meta())?.participants).toBe(2);
+  });
+
+  it('closes a pending socket that sends anything before its hello', async () => {
+    const created = await createBoard();
+    const eager = await open(created.code, 'han', 'Han');
+    const closed = closeOf(eager);
+    eager.send({
+      type: 'addCard',
+      id: 'c',
+      columnId: 'col-1',
+      text: 'Sneaky',
+      anonymous: false,
+    });
+    const event = await closed;
+    expect(event.code).toBe(1008);
+    expect(event.reason).toBe('hello');
+
+    const garbled = await open(created.code, 'luke', 'Luke');
+    const gone = closeOf(garbled);
+    garbled.ws.send('not json');
+    expect((await gone).reason).toBe('hello');
+
+    // A hello without a secret is no hello.
+    const bare = await open(created.code, 'rey', 'Rey');
+    const refused = closeOf(bare);
+    bare.ws.send(JSON.stringify({ type: 'hello' }));
+    expect((await refused).reason).toBe('hello');
+
+    const watcher = await join(created.code, 'watch', 'Watcher');
+    const snapshot = await watcher.next('snapshot');
+    expect(snapshot.board.cards).toEqual([]);
+    expect(snapshot.board.participants.map((p) => p.id)).toEqual([
+      'owner-1',
+      'watch',
+    ]);
+  });
+
+  it('closes a socket whose hello is too late, on the next event', async () => {
+    const created = await createBoard();
+    const slow = await open(created.code, 'han', 'Han');
+    const closed = closeOf(slow);
+    await runInDurableObject(stubFor(created.code), async (_i, state) => {
+      for (const ws of state.getWebSockets()) {
+        const attachment = ws.deserializeAttachment() as {
+          openedAt: number;
+        };
+        ws.serializeAttachment({
+          ...attachment,
+          openedAt: attachment.openedAt - LIMITS.helloTimeoutMs,
+        });
+      }
+    });
+    // Hibernation rules out a timer: the next thing that happens reaps it.
+    await join(created.code, 'luke', 'Luke');
+    const event = await closed;
+    expect(event.code).toBe(1008);
+    expect(event.reason).toBe('hello');
+  });
+
+  it('gives an owner token in the hello ownership, and a wrong one none', async () => {
+    const created = await createBoard();
+    const wrong = await join(created.code, 'owner-1', 'Leia', 'nope');
+    expect((await wrong.next('snapshot')).you.isOwner).toBe(false);
+    const right = await join(
+      created.code,
+      'owner-1',
+      'Leia',
+      created.ownerToken,
+    );
+    expect((await right.next('snapshot')).you.isOwner).toBe(true);
+  });
+
+  it('applies ops sent right behind the hello, after the snapshot', async () => {
+    const created = await createBoard();
+    const han = await open(created.code, 'han', 'Han');
+    han.ws.send(JSON.stringify({ type: 'hello', secret: 'secret-of-han' }));
+    const opId = han.send({
+      type: 'addCard',
+      id: 'quick',
+      columnId: 'col-1',
+      text: 'Fast',
+      anonymous: false,
+    });
+    const echo = await han.next('op');
+    expect(echo.opId).toBe(opId);
+    expect(han.messages[0].type).toBe('snapshot');
+    // A second hello changes nothing.
+    han.ws.send(JSON.stringify({ type: 'hello', secret: 'secret-of-luke' }));
+    const again = han.send({ type: 'setDone', done: true });
+    expect((await han.next('op', han.messages.indexOf(echo) + 1)).opId).toBe(
+      again,
+    );
+  });
+
+  it('caps pending sockets, dropping the oldest', async () => {
+    const created = await createBoard();
+    const waiting: Client[] = [];
+    for (let i = 0; i < LIMITS.pendingSocketsMax; i++) {
+      waiting.push(await open(created.code, `p${i}`, `P${i}`));
+    }
+    const oldest = closeOf(waiting[0]);
+    const newest = await open(created.code, 'late', 'Late');
+    expect((await oldest).reason).toBe('hello');
+    newest.ws.send(JSON.stringify({ type: 'hello', secret: 'secret-of-late' }));
+    expect((await newest.next('snapshot')).you.id).toBe('late');
   });
 });

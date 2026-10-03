@@ -88,18 +88,18 @@ export function exportUrl(code: string, format: ExportFormat = 'md'): string {
   return `/api/boards/${encodeURIComponent(code)}/export.${format}`;
 }
 
+/**
+ * Only the participant id and name, both public on the board. The secret
+ * and owner token go in the socket's first message (`hello`), so they never
+ * sit in a request log.
+ */
 export function socketUrl(
   code: string,
-  identity: { id: string; secret: string; name: string },
-  token: string | null,
+  identity: { id: string; name: string },
 ): string {
   const url = new URL(`/ws/${encodeURIComponent(code)}`, window.location.href);
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
   url.searchParams.set('pid', identity.id);
-  url.searchParams.set('secret', identity.secret);
   url.searchParams.set('name', identity.name);
-  if (token) {
-    url.searchParams.set('token', token);
-  }
   return url.toString();
 }

@@ -155,6 +155,17 @@ export type BoardOp = Op | ServerOp;
 
 /** Client → server. */
 export const ClientMessageSchema = z.discriminatedUnion('type', [
+  /**
+   * A socket's first message: the credentials that seat it. They travel
+   * here, not on the socket URL, so request logs never hold them.
+   */
+  z.object({
+    type: z.literal('hello'),
+    /** The browser secret bound to the participant id on the URL. */
+    secret: z.string().min(1).max(128),
+    /** The owner token, from the browser that holds it. */
+    token: z.string().min(1).max(128).optional(),
+  }),
   z.object({
     type: z.literal('op'),
     /** Client-chosen id so the sender can match the echo or the rejection. */
