@@ -1,11 +1,11 @@
-import { cardsInColumn, votesFor } from './reducer';
+import { blursCards, cardsInColumn, votesFor } from './reducer';
 import { type ActionItem, type Board, type Card, REACTIONS } from './types';
 
 /**
  * Everything here is shared by the server endpoints (`/export.md`,
  * `/export.csv`, `/export.txt`) and the export dialog, so a download and a
  * copy always match. No format ever prints the author of an anonymous card
- * or comment.
+ * or comment, or a card while cards are blurred in Write.
  */
 
 export type ExportFormat = 'md' | 'csv' | 'txt';
@@ -21,6 +21,25 @@ export const EXPORT_FORMATS: Record<
 
 export function isExportFormat(value: string): value is ExportFormat {
   return Object.hasOwn(EXPORT_FORMATS, value);
+}
+
+/**
+ * An export needs only the code, so while cards are blurred in Write it
+ * would let anyone read all of them. Until Write ends it leaves the cards
+ * out, with their comments, votes, reactions and action item links.
+ */
+function exportable(board: Board): Board {
+  if (!blursCards(board)) {
+    return board;
+  }
+  return {
+    ...board,
+    cards: [],
+    comments: [],
+    votes: [],
+    reactions: [],
+    actionItems: board.actionItems.map((a) => ({ ...a, cardId: null })),
+  };
 }
 
 export function exportBoard(
@@ -43,7 +62,9 @@ export function exportBoard(
  * vote and reaction counts, comments under their card, then action items
  * with the card each came from.
  */
-export function boardToMarkdown(board: Board, now = Date.now()): string {
+export function boardToMarkdown(input: Board, now = Date.now()): string {
+  const board = exportable(input);
+  const hidden = blursCards(input);
   const lines: string[] = [];
   lines.push(`# ${board.title}`);
   lines.push('');
@@ -63,7 +84,11 @@ export function boardToMarkdown(board: Board, now = Date.now()): string {
     }
     const cards = cardsInColumn(board, column.id);
     if (cards.length === 0) {
-      lines.push('_No cards._');
+      lines.push(
+        hidden
+          ? '_Cards are hidden until the Write phase ends._'
+          : '_No cards._',
+      );
       lines.push('');
       continue;
     }
@@ -111,7 +136,8 @@ export function boardToMarkdown(board: Board, now = Date.now()): string {
  * Action items as CSV for a tracker import (Jira, Linear). RFC 4180 quoting;
  * cells that a spreadsheet would read as a formula are defused with a quote.
  */
-export function actionItemsToCsv(board: Board): string {
+export function actionItemsToCsv(input: Board): string {
+  const board = exportable(input);
   const rows = [['Summary', 'Owner', 'Done', 'Card']];
   for (const item of board.actionItems) {
     rows.push([
@@ -131,7 +157,8 @@ export const SUMMARY_TOP_CARDS = 5;
  * A short plain-text summary for a chat message: the title, the most-voted
  * cards (a group counts once, with its combined votes) and the action items.
  */
-export function boardToSummary(board: Board, now = Date.now()): string {
+export function boardToSummary(input: Board, now = Date.now()): string {
+  const board = exportable(input);
   const lines = [`${board.title} · retro ${formatDate(now)}`];
 
   const stacks: { text: string; votes: number; extra: number }[] = [];

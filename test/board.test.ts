@@ -941,3 +941,56 @@ describe('sealed anonymous cards on the wire', () => {
     );
   });
 });
+
+describe('blurred cards on the wire', () => {
+  it('keeps the text off other sockets and the export until Write ends', async () => {
+    const created = await createBoard();
+    const leia = await join(
+      created.code,
+      'owner-1',
+      'Leia',
+      created.ownerToken,
+    );
+    const luke = await join(created.code, 'luke', 'Luke');
+    const han = await join(created.code, 'han', 'Han');
+    await Promise.all([
+      leia.next('snapshot'),
+      luke.next('snapshot'),
+      han.next('snapshot'),
+    ]);
+
+    han.send({
+      type: 'addCard',
+      id: 'h',
+      columnId: 'col-1',
+      text: 'Han private',
+      anonymous: false,
+    });
+    han.send({ type: 'editCard', id: 'h', text: 'Han private, edited' });
+    const isCardOp = (m: ServerMessage) =>
+      m.type === 'op' && (m.op.type === 'addCard' || m.op.type === 'editCard');
+    await vi.waitFor(() => {
+      expect(luke.messages.filter(isCardOp)).toHaveLength(2);
+      expect(han.messages.filter(isCardOp)).toHaveLength(2);
+    });
+    // The author's own echo keeps the text.
+    expect(JSON.stringify(han.messages)).toContain('Han private, edited');
+
+    luke.ws.send(JSON.stringify({ type: 'sync' }));
+    await luke.next('snapshot', 1);
+    expect(JSON.stringify(luke.messages)).not.toContain('Han private');
+    expect(JSON.stringify(leia.messages)).not.toContain('Han private');
+
+    const md = await call(
+      new Request(`http://holocron.test/api/boards/${created.code}/export.md`),
+    );
+    expect(await md.text()).not.toContain('Han private');
+
+    // Write ends: everyone gets a snapshot with the text.
+    const seen = luke.messages.length;
+    leia.send({ type: 'setPhase', phase: 'vote' });
+    const after = await luke.next('snapshot', seen);
+    expect(after.board.phase).toBe('vote');
+    expect(after.board.cards[0].text).toBe('Han private, edited');
+  });
+});

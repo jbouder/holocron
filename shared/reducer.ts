@@ -167,16 +167,17 @@ function canDeleteCard(card: Card, actor: Actor): boolean {
   return isCardAuthor(card, actor) || actor.isOwner;
 }
 
+/** Write with blurring on: each card is readable by its author only. */
+export function blursCards(board: Board): boolean {
+  return board.phase === 'write' && board.settings.blurDuringWrite;
+}
+
 /**
  * During Write, with blurring on, only the author can read a card, so only
  * the author can react to it or comment on it. The UI hides both too.
  */
 export function isCardHidden(board: Board, card: Card, viewer: Viewer) {
-  return (
-    board.phase === 'write' &&
-    board.settings.blurDuringWrite &&
-    !isCardAuthor(card, viewer)
-  );
+  return blursCards(board) && !isCardAuthor(card, viewer);
 }
 
 /**
@@ -214,6 +215,60 @@ export function redactAnonymous(board: Board): Board {
       c.anonymous ? { ...c, authorId: '' } : c,
     ),
   };
+}
+
+/**
+ * The board as one viewer may receive it: cards still blurred for them, and
+ * the comments on those cards, lose their text. Blurring hides nothing if
+ * the text reaches the browser anyway. Needs the real author ids, so run it
+ * before `redactAnonymous`.
+ */
+export function redactHidden(board: Board, viewer: Viewer): Board {
+  if (!blursCards(board)) {
+    return board;
+  }
+  const hidden = new Set(
+    board.cards.filter((c) => isCardHidden(board, c, viewer)).map((c) => c.id),
+  );
+  if (hidden.size === 0) {
+    return board;
+  }
+  return {
+    ...board,
+    cards: board.cards.map((c) => (hidden.has(c.id) ? { ...c, text: '' } : c)),
+    comments: board.comments.map((c) =>
+      hidden.has(c.cardId) ? { ...c, text: '' } : c,
+    ),
+  };
+}
+
+/**
+ * The same for an op echo: an op that carries the text of a card (or of a
+ * comment on a card) still blurred for the viewer goes out without it.
+ * `board` is the board after the op.
+ */
+export function redactHiddenOp(
+  board: Board,
+  op: BoardOp,
+  viewer: Viewer,
+): BoardOp {
+  const hidden = (cardId: string | undefined) => {
+    const card = board.cards.find((c) => c.id === cardId);
+    return card !== undefined && isCardHidden(board, card, viewer);
+  };
+  switch (op.type) {
+    case 'addCard':
+    case 'editCard':
+      return hidden(op.id) ? { ...op, text: '' } : op;
+    case 'addComment':
+      return hidden(op.cardId) ? { ...op, text: '' } : op;
+    case 'editComment':
+      return hidden(board.comments.find((c) => c.id === op.id)?.cardId)
+        ? { ...op, text: '' }
+        : op;
+    default:
+      return op;
+  }
 }
 
 /** The anonymous cards and comments one participant wrote, for their `you`. */

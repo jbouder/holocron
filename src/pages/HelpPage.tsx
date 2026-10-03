@@ -168,7 +168,8 @@ export function HelpPage() {
             <Term name="Write">
               Everyone adds cards. Other people's cards are blurred so nobody
               anchors on the first thing posted (the owner can turn this off).
-              Voting is closed. When you have nothing more to add, press{' '}
+              Their text doesn't reach your browser, or any export, until Write
+              ends. Voting is closed. When you have nothing more to add, press{' '}
               <strong>I'm done</strong>: a check appears on your avatar and the
               count next to the avatars ("3 of 5 done") tells the facilitator
               when to move on. Press it again to take it back. It resets when

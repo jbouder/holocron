@@ -14,9 +14,12 @@ import {
 } from '#shared/protocol';
 import {
   anonymousIdsFor,
+  blursCards,
   createBoard,
   OpError,
   redactAnonymous,
+  redactHidden,
+  redactHiddenOp,
   reduce,
   upgradeBoard,
 } from '#shared/reducer';
@@ -524,7 +527,8 @@ export class BoardObject extends DurableObject<Bindings> {
     // Decided before the reduce, while a deleted card is still there.
     const secret = this.anonymousTarget(this.board, op, actor);
     const at = Date.now();
-    const next = reduce(this.board, op, actor, at);
+    const before = this.board;
+    const next = reduce(before, op, actor, at);
     this.board = next;
     this.seq += 1;
     this.persist();
@@ -545,11 +549,22 @@ export class BoardObject extends DurableObject<Bindings> {
       this.send(ws, {
         type: 'op',
         seq: this.seq,
-        op,
+        op: redactHiddenOp(next, op, { id: to?.id ?? '' }),
         opId,
         actor: visible,
         at,
       });
+    }
+
+    // The blur lifted (or came back): echoes cannot carry the text everyone
+    // can now read, so everyone gets the board again.
+    if (blursCards(before) !== blursCards(next)) {
+      for (const ws of this.ctx.getWebSockets()) {
+        const to = ws.deserializeAttachment() as Attachment | null;
+        if (to && !skip.has(ws)) {
+          this.sendSnapshot(ws, this.actorFor(to));
+        }
+      }
     }
   }
 
@@ -611,8 +626,11 @@ export class BoardObject extends DurableObject<Bindings> {
       return;
     }
     // Author ids of anonymous items never leave the object; the recipient's
-    // own are listed in `you` instead.
-    const board = redactAnonymous(this.withPresence(this.board));
+    // own are listed in `you` instead. Nor does the text of cards still
+    // blurred for the recipient.
+    const board = redactAnonymous(
+      redactHidden(this.withPresence(this.board), actor),
+    );
     const you: You = {
       id: actor.id,
       name: actor.name,
