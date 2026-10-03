@@ -233,6 +233,13 @@ export function useBoard(
           setStatus('refused');
           return;
         }
+        if (event.code === 1013) {
+          // Too many lookups from this address: the board is there, so
+          // wait it out and never call it missing.
+          setStatus('reconnecting');
+          reconnectTimer = window.setTimeout(connect, MAX_BACKOFF_MS);
+          return;
+        }
         // The upgrade itself failed (404 for a missing board shows up as an
         // immediate close with code 1006 before any snapshot).
         if (

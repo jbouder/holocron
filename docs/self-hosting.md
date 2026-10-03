@@ -172,6 +172,9 @@ Redeploying starts clean.
 
 Creating a board needs no account, so the only guard by default is the
 per-IP rate limit (10 boards a minute, `CREATE_LIMITER` in `wrangler.jsonc`).
+Looking a board up by code (joining, the socket, exports) has its own,
+looser limit (300 a minute, `PROBE_LIMITER`). Raise it if a large team
+shares one address.
 If you see abuse from many addresses, require a
 [Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/) check
 on the home page's Create button. Joining a board is never affected.

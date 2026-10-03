@@ -107,6 +107,10 @@ export default {
         if (!isValidCode(code)) {
           return json({ error: 'That is not a board code' }, 400);
         }
+        // Reads need only the code, so they are what a guesser would use.
+        if (request.method === 'GET' && !(await probeAllowed(request, env))) {
+          return json({ error: TOO_MANY_LOOKUPS }, 429);
+        }
         const stub = env.BOARD.getByName(code);
 
         const format = boardMatch[2];
@@ -176,6 +180,9 @@ export default {
             status: 400,
             headers: API_HEADERS,
           });
+        }
+        if (!(await probeAllowed(request, env))) {
+          return refuseSocket(1013, 'limited');
         }
         // Upgrades must travel as a fetch; RPC cannot carry a socket.
         return env.BOARD.getByName(code).fetch(request);
@@ -287,6 +294,26 @@ async function redeemHandoff(
   }
   const response: RedeemHandoffResponse = { ownerToken: result.ownerToken };
   return json(response);
+}
+
+const TOO_MANY_LOOKUPS = 'Too many board lookups from here. Wait a minute.';
+
+/** Per-IP budget for anything that reads a board by its code alone. */
+async function probeAllowed(request: Request, env: Bindings): Promise<boolean> {
+  const ip = request.headers.get('cf-connecting-ip') ?? 'local';
+  const { success } = await env.PROBE_LIMITER.limit({ key: ip });
+  return success;
+}
+
+/**
+ * A browser cannot read the status of a failed upgrade, only a close code,
+ * so a refusal it should act on is an accepted socket closed at once.
+ */
+function refuseSocket(code: number, reason: string): Response {
+  const [client, server] = Object.values(new WebSocketPair());
+  server.accept();
+  server.close(code, reason);
+  return new Response(null, { status: 101, webSocket: client });
 }
 
 function bearer(request: Request): string {
