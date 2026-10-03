@@ -71,6 +71,9 @@ export function ActionItemsSheet({
     }
   }
 
+  // Anyone adds; with facilitation locked, only the owner ticks or removes.
+  const canManage = !board.settings.facilitatorOnly || you.isOwner;
+
   /** What a linked card shows as: its text, unless it is still blurred for you. */
   function cardQuote(cardId: string): string | null {
     const card = board.cards.find((c) => c.id === cardId);
@@ -200,6 +203,7 @@ export function ActionItemsSheet({
                   <Checkbox
                     id={`ai-${item.id}`}
                     checked={item.done}
+                    disabled={!canManage}
                     onCheckedChange={() =>
                       dispatch({ type: 'toggleActionItem', id: item.id })
                     }
@@ -227,17 +231,19 @@ export function ActionItemsSheet({
                       />
                     )}
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    aria-label="Remove action item"
-                    className="press opacity-0 group-focus-within:opacity-100 group-hover:opacity-100"
-                    onClick={() =>
-                      dispatch({ type: 'deleteActionItem', id: item.id })
-                    }
-                  >
-                    <TrashIcon />
-                  </Button>
+                  {canManage && (
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      aria-label="Remove action item"
+                      className="press opacity-0 group-focus-within:opacity-100 group-hover:opacity-100"
+                      onClick={() =>
+                        dispatch({ type: 'deleteActionItem', id: item.id })
+                      }
+                    >
+                      <TrashIcon />
+                    </Button>
+                  )}
                 </li>
               ))}
             </ul>

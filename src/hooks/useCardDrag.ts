@@ -83,7 +83,7 @@ export function useCardDrag(handlers: DragHandlers, enabled: boolean) {
         return null;
       }
       const card = hit.closest<HTMLElement>('[data-card-id]');
-      if (card && card !== state.cardEl) {
+      if (card && card !== state.cardEl && card.dataset.noGroup === undefined) {
         const id = card.dataset.cardId ?? '';
         const group = card.dataset.groupId ?? '';
         if (id && !(group && group === state.groupId)) {

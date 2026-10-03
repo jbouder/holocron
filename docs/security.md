@@ -42,18 +42,16 @@ from the socket attachment, never from the op. Rules:
 | `addCard`, `vote`, `unvote`, `setDone`, `setName` | Any participant (votes after Write; `setDone` only in Write, only for yourself) |
 | `editCard`, `editComment` | Author only, never the owner |
 | `deleteCard`, `deleteComment` | Author or owner |
-| `moveCard`, `groupCards`, `ungroupCard` | Author or owner; anyone when the facilitation lock is off |
+| `moveCard`, `groupCards`, `ungroupCard` | Author or owner (for `groupCards`, of both cards); anyone when the facilitation lock is off. A new group id can't name an existing group |
 | `toggleReaction`, `addComment` | Any participant, except on a card still blurred for them, or an anonymous card still blurred for everyone else |
 | `setPhase`, `setTimer`, `clearTimer`, `addColumn`, `renameColumn`, `setColumnPrompt`, `deleteColumn`, `renameBoard` | Owner while the lock is on (the default), else anyone |
 | `updateSettings` | Owner only, always |
 | `setOwner` | Server only: not in `ClientMessageSchema`; emitted after a handoff redeem |
-| `addActionItem`, `editActionItem`, `toggleActionItem`, `deleteActionItem` | Anyone, regardless of the lock ([#72](https://github.com/jbouder/holocron/issues/72)) |
+| `addActionItem` | Any participant |
+| `editActionItem`, `toggleActionItem`, `deleteActionItem` | Owner while the lock is on, else anyone ([#72](https://github.com/jbouder/holocron/issues/72)) |
 
 `test/reducer.test.ts` → "permission rules" has a negative case for each rule.
 `setTimer`'s `endsAt` is overwritten with the server clock.
-
-**Open:** action items ignore the facilitation lock, and `groupCards` doesn't
-check the *target* card ([#72](https://github.com/jbouder/holocron/issues/72)).
 
 ### Owner token
 
@@ -245,7 +243,6 @@ No action beyond `bun update` when shadcn bumps it.
 | # | Severity | Finding |
 | --- | --- | --- |
 | [#80](https://github.com/jbouder/holocron/issues/80) | Low | Owner can't remove a participant who holds a seat online |
-| [#72](https://github.com/jbouder/holocron/issues/72) | Low | Action items and the `groupCards` target ignore the facilitation lock |
 | [#73](https://github.com/jbouder/holocron/issues/73) | Low | Markdown export doesn't escape user text |
 | [#74](https://github.com/jbouder/holocron/issues/74) | Low | Owner id unbound at create; non-constant-time compares; tokens in socket URL; two handlers skip `expireIfDue()` |
 

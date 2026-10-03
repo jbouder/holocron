@@ -500,7 +500,12 @@ export function reduce(
       if (card.id === target.id) {
         return board;
       }
-      if (!canArrangeCard(board, card, actor)) {
+      // Grouping changes the target too, so both have to be the actor's to
+      // arrange.
+      if (
+        !canArrangeCard(board, card, actor) ||
+        !canArrangeCard(board, target, actor)
+      ) {
         fail('Only the board owner can group cards on this board');
       }
       const groupId = target.groupId ?? op.groupId;
@@ -512,6 +517,14 @@ export function reduce(
                 .map((c) => c.id),
             )
           : new Set([card.id]);
+      // A new group's id must be new: naming another group would pull the
+      // target into it.
+      if (
+        target.groupId === null &&
+        board.cards.some((c) => c.groupId === groupId && !members.has(c.id))
+      ) {
+        fail('That group id is taken');
+      }
       return {
         ...board,
         cards: board.cards.map((c) => {
@@ -818,6 +831,7 @@ export function reduce(
     }
 
     case 'editActionItem': {
+      requireFacilitator(board, actor);
       if (!board.actionItems.some((a) => a.id === op.id)) {
         fail('That action item is gone');
       }
@@ -842,6 +856,7 @@ export function reduce(
     }
 
     case 'toggleActionItem': {
+      requireFacilitator(board, actor);
       return {
         ...board,
         actionItems: board.actionItems.map((a) =>
@@ -851,6 +866,7 @@ export function reduce(
     }
 
     case 'deleteActionItem': {
+      requireFacilitator(board, actor);
       return {
         ...board,
         actionItems: board.actionItems.filter((a) => a.id !== op.id),
