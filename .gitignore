@@ -34,3 +34,6 @@ Thumbs.db
 .wrangler/
 .dev.vars
 worker-configuration.d.ts
+
+# Claude Code agent worktrees
+.claude/worktrees/
