@@ -32,8 +32,25 @@ anonymous: everyone can see who voted or reacted.
 - theme, motion and timer-sound preferences
 - recent boards (code, title, expiry), pruned as they expire
 
+**In the owner's browser, only if they enable Analysis:**
+
+- the language model's weights and runtime (about 1 GB, in Cache Storage
+  under `webllm/*`), downloaded from Hugging Face and the mlc-ai GitHub
+  releases the first time the owner agrees to it, and kept so the next retro
+  does not download them again. Clearing site data removes them.
+
 Nothing else. No cookies, no accounts, no analytics, and no third-party
 scripts unless the deployment turned on Turnstile (below).
+
+**Analysis.** The owner-only Analysis panel runs a small language model
+inside the owner's browser, on their GPU, over the cards and comments that
+browser already holds. The prompt contains card text, column titles, vote
+counts and comment text, and no names or participant ids. Nothing is sent to
+a server or an AI service; the model download above is the only network
+request it makes, and the download host sees the request, not the board.
+The suggestions live in the owner's tab until it is closed. They are not
+stored, exported or sent to anyone; a suggestion the owner accepts becomes an
+ordinary card group or action item, wiped with everything else.
 
 **Turnstile, if enabled.** A deployment can require a
 [Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/) check

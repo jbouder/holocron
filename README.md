@@ -57,6 +57,13 @@ WebSockets, and wipes itself on an alarm.
   timer, rename the board, add, rename or remove columns, and edit column
   prompts. The owner can open all of that up to everyone by turning off
   "Only I can facilitate".
+- **Analysis (owner only, in Discuss).** A small language model
+  ([WebLLM](https://github.com/mlc-ai/web-llm), Qwen3 1.7B) runs in the
+  owner's browser on their GPU and offers themes with card citations,
+  suggested groupings and draft action items. Accepting a suggestion sends an
+  ordinary op; nothing else changes the board, and no card text leaves the
+  browser. Opt-in: the model (about 1 GB) downloads from Hugging Face only
+  after the owner agrees, and stays cached in that browser. Needs WebGPU.
 - **Ownership.** The creator can change settings (vote budget, anonymity,
   blurring, the facilitation lock), delete any card or comment, and delete
   the board early. Ownership is a token in the creating browser; the server
@@ -91,6 +98,11 @@ WebSockets, and wipes itself on an alarm.
   boards you created, theme, motion and timer-sound preferences, and a list of recent
   boards (pruned as they expire). All under `localStorage` keys prefixed
   `holocron:`. Clearing site data removes them.
+- If the owner enables Analysis, that browser also caches the model weights
+  (about 1 GB, in the browser's Cache Storage under `webllm/*`) so the next
+  retro does not download them again. The download is the only network
+  request Analysis makes; no board data leaves the browser, and the
+  suggestions are never stored. Clearing site data removes the weights.
 
 Limits: 500 cards per board, 8 columns, 50 participants, 500 characters per
 card, 300 per comment (20 per card, 500 per board), 3,000 reactions per
