@@ -250,7 +250,9 @@ export function HelpPage() {
           </p>
           <p>
             While other people's cards are blurred in Write, you can't react to
-            or comment on them. Both open up when Write ends.
+            or comment on them. Your own anonymous cards stay closed too, since
+            a reaction or comment that only the author could add would give them
+            away. Both open up when Write ends.
           </p>
         </Section>
 

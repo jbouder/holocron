@@ -43,7 +43,7 @@ from the socket attachment, never from the op. Rules:
 | `editCard`, `editComment` | Author only, never the owner |
 | `deleteCard`, `deleteComment` | Author or owner |
 | `moveCard`, `groupCards`, `ungroupCard` | Author or owner; anyone when the facilitation lock is off |
-| `toggleReaction`, `addComment` | Any participant, except on a card still blurred for them |
+| `toggleReaction`, `addComment` | Any participant, except on a card still blurred for them, or an anonymous card still blurred for everyone else |
 | `setPhase`, `setTimer`, `clearTimer`, `addColumn`, `renameColumn`, `setColumnPrompt`, `deleteColumn`, `renameBoard` | Owner while the lock is on (the default), else anyone |
 | `updateSettings` | Owner only, always |
 | `setOwner` | Server only: not in `ClientMessageSchema`; emitted after a handoff redeem |
@@ -95,11 +95,13 @@ check the *target* card ([#72](https://github.com/jbouder/holocron/issues/72)).
   checks that no message reaching another participant or the owner (and no
   export) has the author's id or name.
 
-**Open (high):** while a card is blurred in Write, only its author can react
-to it, comment on it or link an action item to it. Reactions store the
-participant id, and those echoes aren't redacted, so doing any of these on
-your own anonymous card unmasks you. This happens with the default settings
-([#67](https://github.com/jbouder/holocron/issues/67)).
+An anonymous card still blurred for everyone else in Write is *sealed*
+(`isCardSealed`): only its author can read it, so a reaction, comment or
+action-item link on it could only come from them and would name them.
+The reducer refuses all three on a sealed card for everyone, the author
+included, until Write ends or blurring is turned off. The UI hides them
+(fixed in [#67](https://github.com/jbouder/holocron/issues/67); test:
+"sealed anonymous cards").
 
 ### Blur during Write
 
@@ -205,7 +207,6 @@ No action beyond `bun update` when shadcn bumps it.
 
 | # | Severity | Finding |
 | --- | --- | --- |
-| [#67](https://github.com/jbouder/holocron/issues/67) | High | Acting on your own blurred anonymous card unmasks you |
 | [#68](https://github.com/jbouder/holocron/issues/68) | Medium | Blur during Write is client-side only |
 | [#69](https://github.com/jbouder/holocron/issues/69) | Medium | No CSP / frame-ancestors / nosniff / Permissions-Policy |
 | [#70](https://github.com/jbouder/holocron/issues/70) | Medium | Board-code probing isn't rate-limited |

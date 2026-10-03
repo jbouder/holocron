@@ -13,6 +13,7 @@ import {
   createBoard,
   isCardAuthor,
   isCardHidden,
+  isCardSealed,
   isCommentAuthor,
   OpError,
   redactAnonymous,
@@ -23,7 +24,7 @@ import {
   votesUsed,
 } from '#shared/reducer';
 import { TEMPLATES } from '#shared/templates';
-import type { Actor, Board } from '#shared/types';
+import { type Actor, type Board, REACTION_EMOJI } from '#shared/types';
 
 const owner: Actor = { id: 'owner', name: 'Leia', isOwner: true };
 const han: Actor = { id: 'han', name: 'Han', isOwner: false };
@@ -862,7 +863,7 @@ describe('anonymity', () => {
         {
           type: 'addComment',
           id: 'whisper',
-          cardId: 'secret',
+          cardId: 'signed',
           text: 'twice',
           anonymous: true,
         },
@@ -1397,5 +1398,87 @@ describe('permission rules', () => {
         { id: 'late', name: 'Late', isOwner: false },
       ),
     ).toThrow('This board is full');
+  });
+});
+
+describe('sealed anonymous cards', () => {
+  const sealed = () => apply(fresh(), [[add('anon', 'Secret', true), han]]);
+
+  it('only seals anonymous cards, in Write, while blurring is on', () => {
+    const board = apply(sealed(), [[add('signed', 'Mine'), han]]);
+    const anon = board.cards[0];
+    expect(isCardSealed(board, anon)).toBe(true);
+    expect(isCardSealed(board, board.cards[1])).toBe(false);
+    expect(
+      isCardSealed(
+        reduce(board, { type: 'setPhase', phase: 'vote' }, owner),
+        anon,
+      ),
+    ).toBe(false);
+    expect(
+      isCardSealed(
+        reduce(
+          board,
+          { type: 'updateSettings', settings: { blurDuringWrite: false } },
+          owner,
+        ),
+        anon,
+      ),
+    ).toBe(false);
+  });
+
+  it('refuses the author anything that would name them on it', () => {
+    const board = sealed();
+    const refused: Op[] = [
+      { type: 'toggleReaction', cardId: 'anon', emoji: REACTION_EMOJI[0] },
+      {
+        type: 'addComment',
+        id: 'c',
+        cardId: 'anon',
+        text: 'Signed',
+        anonymous: false,
+      },
+      {
+        type: 'addComment',
+        id: 'c',
+        cardId: 'anon',
+        text: 'Hidden',
+        anonymous: true,
+      },
+      { type: 'addActionItem', id: 'a', text: 'Do', owner: '', cardId: 'anon' },
+    ];
+    for (const op of refused) {
+      expect(() => reduce(board, op, han)).toThrow(/Write phase ends/);
+    }
+    // Still the author's to edit, move and delete.
+    expect(() =>
+      apply(board, [
+        [{ type: 'editCard', id: 'anon', text: 'Edited' }, han],
+        [{ type: 'moveCard', id: 'anon', columnId: 'col-2' }, han],
+        [{ type: 'deleteCard', id: 'anon' }, han],
+      ]),
+    ).not.toThrow();
+  });
+
+  it('opens up when Write ends', () => {
+    const board = reduce(sealed(), { type: 'setPhase', phase: 'vote' }, owner);
+    const next = apply(board, [
+      [
+        { type: 'toggleReaction', cardId: 'anon', emoji: REACTION_EMOJI[0] },
+        han,
+      ],
+      [
+        {
+          type: 'addActionItem',
+          id: 'a',
+          text: 'Do',
+          owner: '',
+          cardId: 'anon',
+        },
+        han,
+      ],
+    ]);
+    expect(next.reactions).toHaveLength(1);
+    expect(next.actionItems[0].cardId).toBe('anon');
   });
 });

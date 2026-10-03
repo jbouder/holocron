@@ -12,6 +12,7 @@ import {
 } from '@phosphor-icons/react';
 import { useState } from 'react';
 import type { Op, You } from '#shared/protocol';
+import { isCardSealed } from '#shared/reducer';
 import type { Board, Card } from '#shared/types';
 import { HelpLink } from '@/components/HelpLink';
 import { Badge } from '@/components/ui/badge';
@@ -185,7 +186,7 @@ export function AnalysisPanel({
                             id: crypto.randomUUID(),
                             text: draft.text,
                             owner: '',
-                            cardId: liveCard(board, draft.cardId)?.id ?? null,
+                            cardId: linkable(board, draft.cardId),
                           });
                           analysis.dismiss('actions', i);
                         }}
@@ -242,6 +243,12 @@ function acceptGrouping(
 
 function liveCard(board: Board, cardId: string | null): Card | undefined {
   return cardId === null ? undefined : board.cards.find((c) => c.id === cardId);
+}
+
+/** The draft's card to link, unless it is gone or cannot be linked yet. */
+function linkable(board: Board, cardId: string | null): string | null {
+  const card = liveCard(board, cardId);
+  return card && !isCardSealed(board, card) ? card.id : null;
 }
 
 function Notice({ children }: { children: React.ReactNode }) {

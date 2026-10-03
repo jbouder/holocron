@@ -16,7 +16,12 @@ import {
 } from 'react';
 import { LIMITS } from '#shared/limits';
 import type { Op, You } from '#shared/protocol';
-import { isCardAuthor, isCardHidden, votesUsed } from '#shared/reducer';
+import {
+  isCardAuthor,
+  isCardHidden,
+  isCardSealed,
+  votesUsed,
+} from '#shared/reducer';
 import type { Board, Card } from '#shared/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -73,8 +78,11 @@ export function CardView({
   const canEdit = mine || you.isOwner;
   const canArrange = canEdit || !board.settings.facilitatorOnly || you.isOwner;
   const blurred = isCardHidden(board, card, you);
-  // Anyone who can read the card can turn it into an action item.
-  const canAddAction = !blurred;
+  // Reactions, comments and action item links, which would name whoever
+  // added them: open to anyone who can read the card, except on an anonymous
+  // card only its author can read yet (that would unmask them).
+  const canRespond = !blurred && !isCardSealed(board, card);
+  const canAddAction = canRespond;
   const addActionFor = useAddActionForCard();
   const [threadOpen, setThreadOpen] = useState(false);
   const threadId = useId();
@@ -279,7 +287,7 @@ export function CardView({
           )}
       </div>
 
-      {!blurred && (
+      {canRespond && (
         <ReactionChips
           board={board}
           card={card}
@@ -300,7 +308,7 @@ export function CardView({
         </span>
 
         <div className="flex shrink-0 items-center gap-0.5">
-          {!blurred && (
+          {canRespond && (
             <>
               <ReactionPicker
                 board={board}
@@ -363,7 +371,7 @@ export function CardView({
         </div>
       </footer>
 
-      {threadOpen && !blurred && (
+      {threadOpen && canRespond && (
         <CommentThread
           id={threadId}
           board={board}
