@@ -207,8 +207,14 @@ refused before the limiter and before any Durable Object is touched.
   runs in a Web Worker. Model output is rendered as text.
 - CSV export: RFC 4180 quoting; cells starting with `= + - @ \t \r` are
   prefixed with `'`.
-- Markdown export: user text is **not** escaped
-  ([#73](https://github.com/jbouder/holocron/issues/73)).
+- Markdown export: every user string (title, column titles and prompts,
+  card and comment text, author names, action items and their owners) is
+  put on one line and escaped. That covers ``\ ` * _ [ ] < > # | ~`` and a
+  leading `-`, `+`, `=` or `1.`, so pasted exports can't carry links,
+  images, inline HTML or fake task boxes. Checked against markdown-it with
+  raw HTML enabled (fixed in
+  [#73](https://github.com/jbouder/holocron/issues/73)). The plain-text
+  summary stays raw for chat.
 
 ### Transport and headers
 
@@ -243,7 +249,6 @@ No action beyond `bun update` when shadcn bumps it.
 | # | Severity | Finding |
 | --- | --- | --- |
 | [#80](https://github.com/jbouder/holocron/issues/80) | Low | Owner can't remove a participant who holds a seat online |
-| [#73](https://github.com/jbouder/holocron/issues/73) | Low | Markdown export doesn't escape user text |
 | [#74](https://github.com/jbouder/holocron/issues/74) | Low | Owner id unbound at create; non-constant-time compares; tokens in socket URL; two handlers skip `expireIfDue()` |
 
 When one of these is fixed, update the section above and drop it from the

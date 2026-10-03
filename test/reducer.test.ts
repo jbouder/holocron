@@ -1714,3 +1714,85 @@ describe('releasing idle seats', () => {
     ).toBe(false);
   });
 });
+
+describe('Markdown export escaping', () => {
+  const evil: Actor = { id: 'evil', name: '<b>Mallory</b>', isOwner: false };
+  const board = () =>
+    apply(fresh(), [
+      [{ type: 'renameBoard', title: '[Sprint](javascript:alert(1))' }, owner],
+      [
+        {
+          type: 'renameColumn',
+          id: col,
+          title: '<img src=x onerror=alert(1)>',
+        },
+        owner,
+      ],
+      [
+        { type: 'setColumnPrompt', id: col, prompt: '*bold* _it_ `code`' },
+        owner,
+      ],
+      [add('a', '[click](javascript:alert(1))'), evil],
+      [add('b', '- [x] fake task'), evil],
+      [add('c', '1. not a list\n# not a heading'), evil],
+      [{ type: 'setPhase', phase: 'discuss' }, owner],
+      [
+        {
+          type: 'addComment',
+          id: 'k',
+          cardId: 'a',
+          text: '<script>alert(1)</script> | cell',
+          anonymous: false,
+        },
+        evil,
+      ],
+      [
+        {
+          type: 'addActionItem',
+          id: 'ai',
+          text: '![img](http://x/y.png)',
+          owner: '~~Mallory~~',
+          cardId: 'a',
+        },
+        evil,
+      ],
+    ]);
+
+  it('escapes everything users write', () => {
+    const out = boardToMarkdown(board(), 0);
+    expect(out).toContain('# \\[Sprint\\](javascript:alert(1))');
+    expect(out).toContain('## \\<img src=x onerror=alert(1)\\>');
+    expect(out).toContain('_\\*bold\\* \\_it\\_ \\`code\\`_');
+    expect(out).toContain(
+      '- \\[click\\](javascript:alert(1)) _(\\<b\\>Mallory\\</b\\>)_',
+    );
+    expect(out).toContain('- \\- \\[x\\] fake task');
+    expect(out).toContain('- 1\\. not a list \\# not a heading');
+    expect(out).toContain(
+      '  - 💬 \\<script\\>alert(1)\\</script\\> \\| cell _(\\<b\\>Mallory\\</b\\>)_',
+    );
+    expect(out).toContain(
+      '- [ ] !\\[img\\](http://x/y.png) — \\~\\~Mallory\\~\\~',
+    );
+    expect(out).toContain('  - From: \\[click\\](javascript:alert(1))');
+    // No unescaped HTML or link syntax survives.
+    expect(out).not.toMatch(/(?<!\\)</);
+    expect(out).not.toMatch(/(?<!\\)\]\(/);
+  });
+
+  it('leaves the plain-text summary readable', () => {
+    const out = boardToSummary(board(), 0);
+    expect(out).toContain('![img](http://x/y.png) (~~Mallory~~)');
+    expect(out).not.toContain('\\');
+  });
+
+  it('treats a bare carriage return as a line break too', () => {
+    const board = apply(fresh(), [
+      [add('d', 'foo\r- [x] fake\r\n1. two'), han],
+      [{ type: 'setPhase', phase: 'discuss' }, owner],
+    ]);
+    const out = boardToMarkdown(board, 0);
+    expect(out).not.toContain('\r');
+    expect(out).toContain('- foo - \\[x\\] fake 1. two');
+  });
+});
