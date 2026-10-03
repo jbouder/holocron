@@ -7,6 +7,7 @@ import {
   type Locator,
   type Page,
 } from '@playwright/test';
+import type { ThemeId } from '../src/lib/themes';
 
 export { expect };
 
@@ -31,6 +32,20 @@ async function offline(context: BrowserContext) {
   );
 }
 
+/** Save `theme` in this context's storage before any page loads. */
+async function useTheme(context: BrowserContext, theme: ThemeId | null) {
+  if (theme !== null) {
+    await context.addInitScript((id) => {
+      localStorage.setItem('holocron:theme', id);
+    }, theme);
+  }
+}
+
+interface Options {
+  /** The theme every context starts in; null leaves it on System. */
+  theme: ThemeId | null;
+}
+
 interface Fixtures {
   /**
    * A second person on the same board, in their own browser context (their
@@ -39,21 +54,27 @@ interface Fixtures {
   peer: Page;
 }
 
-export const test = base.extend<Fixtures>({
+export const test = base.extend<Options & Fixtures>({
+  theme: [null, { option: true }],
   extraHTTPHeaders: async ({ extraHTTPHeaders }, use) => {
     await use({ ...extraHTTPHeaders, 'cf-connecting-ip': clientIp() });
   },
-  context: async ({ context }, use) => {
+  context: async ({ context, theme }, use) => {
     await offline(context);
+    await useTheme(context, theme);
     await use(context);
   },
-  peer: async ({ browser, extraHTTPHeaders, reducedMotion, viewport }, use) => {
+  peer: async (
+    { browser, extraHTTPHeaders, reducedMotion, viewport, theme },
+    use,
+  ) => {
     const context = await browser.newContext({
       extraHTTPHeaders,
       reducedMotion,
       viewport,
     });
     await offline(context);
+    await useTheme(context, theme);
     await use(await context.newPage());
     await context.close();
   },
@@ -202,7 +223,7 @@ export async function expectAccessible(page: Page) {
     id: v.id,
     impact: v.impact,
     help: v.help,
-    targets: v.nodes.map((n) => n.target.join(' ')),
+    nodes: v.nodes.map((n) => `${n.target.join(' ')}: ${n.html.slice(0, 160)}`),
   }));
   expect.soft(summary).toEqual([]);
 }
