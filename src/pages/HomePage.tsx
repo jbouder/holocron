@@ -41,12 +41,12 @@ export function HomePage() {
         style={{ '--i': 0 } as React.CSSProperties}
       >
         <h1 className="font-heading text-4xl font-semibold tracking-tight sm:text-5xl">
-          The retro board that doesn't keep your retros.
+          The retro board that doesn't archive your retros.
         </h1>
         <p className="mt-4 text-pretty text-base text-muted-foreground sm:text-lg">
-          No accounts, no history, no archive. Share a six-character code, run
-          the retro together, export what matters. Everything else is erased
-          from the archives every morning.
+          No accounts, no history, no trace. Share a six-character key, unlock
+          the holocron together, and export the wisdom worth keeping. Everything
+          else is purged from the archives at dawn.
         </p>
       </section>
 
