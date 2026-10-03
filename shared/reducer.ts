@@ -501,10 +501,12 @@ export function reduce(
         return board;
       }
       // Grouping changes the target too, so both have to be the actor's to
-      // arrange.
+      // arrange. A redacted echo (empty id) was already checked by the
+      // server and names neither card's author, so it is taken as is.
       if (
-        !canArrangeCard(board, card, actor) ||
-        !canArrangeCard(board, target, actor)
+        actor.id !== '' &&
+        (!canArrangeCard(board, card, actor) ||
+          !canArrangeCard(board, target, actor))
       ) {
         fail('Only the board owner can group cards on this board');
       }

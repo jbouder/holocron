@@ -637,12 +637,20 @@ export class BoardObject extends DurableObject<Bindings> {
       case 'editCard':
       case 'deleteCard':
       case 'moveCard':
-      case 'groupCards':
       case 'ungroupCard': {
         const card = board.cards.find((c) => c.id === op.id);
         return card?.anonymous && card.authorId === actor.id
           ? { anonymousCardIds: [card.id] }
           : null;
+      }
+      case 'groupCards': {
+        // Both cards must be the actor's under the lock, so naming the actor
+        // when either is their anonymous card would give its author away.
+        const mine = [op.id, op.targetId].filter((id) => {
+          const card = board.cards.find((c) => c.id === id);
+          return card?.anonymous === true && card.authorId === actor.id;
+        });
+        return mine.length > 0 ? { anonymousCardIds: mine } : null;
       }
       case 'addComment':
         return op.anonymous ? { anonymousCommentIds: [op.id] } : null;
