@@ -1,0 +1,10 @@
+# Response headers for the static assets (Cloudflare Workers static assets
+# reads this file; see docs/self-hosting.md if you serve them another way).
+#
+# Send no referrer to other sites. Two reasons: a board URL carries its
+# code, which third parties have no business seeing; and Hugging Face
+# refuses model downloads whose Referer is a *.workers.dev page, including
+# the ones the analysis worker makes through Cache.add(), which no fetch
+# wrapper can reach. The header on the worker script is what fixes that.
+/*
+  Referrer-Policy: same-origin

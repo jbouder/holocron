@@ -202,3 +202,12 @@ origin:
 
 The image itself (`public/og.png`), the favicons and the manifest icons are
 rendered from `docs/brand/mark.svg`; nothing else needs to change.
+
+## Response headers
+
+`public/_headers` sets `Referrer-Policy: same-origin` on everything the
+Worker serves (Cloudflare's static assets read that file). Keep it if you
+serve the built files some other way: a board URL carries its code, and the
+Analysis panel's model download fails without it, because Hugging Face
+rejects requests whose `Referer` is a `*.workers.dev` page. The worker
+script's own response header is what governs those requests.
