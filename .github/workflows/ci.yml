@@ -12,7 +12,8 @@ permissions:
   contents: read
 
 # A new push to a PR cancels that PR's older run. Runs on `main` queue
-# instead of cancelling, so a production deploy is never interrupted.
+# instead of cancelling, so every commit on `main` gets a result (and
+# .github/workflows/deploy.yml, which follows a successful run, a trigger).
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -38,42 +39,3 @@ jobs:
       - run: bunx vite build
       - run: bunx vitest run
 
-  deploy:
-    needs: check
-    runs-on: ubuntu-latest
-    # Never on a PR, only for `main`.
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    environment:
-      name: production
-    concurrency:
-      group: deploy-production
-      cancel-in-progress: false
-    # Deploys only when the repository has Cloudflare credentials configured
-    # (Settings → Secrets and variables → Actions). Without them every step
-    # below is skipped and the run stays green, so forks get the checks only.
-    env:
-      CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-    steps:
-      - if: env.CF_API_TOKEN == ''
-        run: echo "No CLOUDFLARE_API_TOKEN secret; skipping deploy. See docs/self-hosting.md." >> "$GITHUB_STEP_SUMMARY"
-      - if: env.CF_API_TOKEN != ''
-        uses: actions/checkout@v7
-      - if: env.CF_API_TOKEN != ''
-        uses: oven-sh/setup-bun@v2
-      - if: env.CF_API_TOKEN != ''
-        uses: actions/cache@v6
-        with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-          restore-keys: bun-${{ runner.os }}-
-      - if: env.CF_API_TOKEN != ''
-        run: bun install --frozen-lockfile
-      - if: env.CF_API_TOKEN != ''
-        run: bun run build
-      - if: env.CF_API_TOKEN != ''
-        uses: cloudflare/wrangler-action@v4
-        with:
-          apiToken: ${{ env.CF_API_TOKEN }}
-          accountId: ${{ env.CF_ACCOUNT_ID }}
-          command: deploy

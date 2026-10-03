@@ -1,0 +1,70 @@
+name: Deploy
+
+on:
+  # After CI finishes on `main`. The `gate` job below only lets a successful
+  # run of a commit pushed to this repository's `main` through.
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  # Re-deploy the current `main` (new Cloudflare token, a `wrangler.jsonc`
+  # var change) without re-running CI.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # Jobs cannot be skipped on a secret directly, so this one reads the secret
+  # once and hands the answer to `deploy`. Without CLOUDFLARE_API_TOKEN
+  # (forks, fresh clones) `deploy` is skipped and the run stays green.
+  gate:
+    runs-on: ubuntu-latest
+    # `branches: [main]` above matches a fork PR whose branch is also named
+    # `main`, so check the event and the head repository as well.
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event != 'pull_request' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    outputs:
+      enabled: ${{ steps.secret.outputs.enabled }}
+    steps:
+      - id: secret
+        env:
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -n "$CF_API_TOKEN" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "No CLOUDFLARE_API_TOKEN secret; skipping deploy. See docs/self-hosting.md." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  deploy:
+    needs: gate
+    if: needs.gate.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The commit CI passed, not whatever `main` points at by now.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy

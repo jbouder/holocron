@@ -64,30 +64,44 @@ WebSockets work on custom domains without extra configuration.
 
 ## Deploy from GitHub Actions
 
-`.github/workflows/ci.yml` runs the `check` job (Biome, `tsc -b`, `vite build`,
-Vitest) on every pull request and every push to `main`, and deploys `main`
-when two repository secrets exist:
+Two workflows:
+
+- `.github/workflows/ci.yml` runs the `check` job (Biome, `tsc -b`,
+  `vite build`, Vitest) on every pull request and every push to `main`. It
+  never deploys and never touches a secret.
+- `.github/workflows/deploy.yml` runs when CI succeeds on a commit pushed to
+  `main`, and deploys exactly that commit. Run it by hand (Actions → Deploy →
+  Run workflow on `main`) to re-deploy the current `main` without re-running
+  CI, for example after rotating the Cloudflare token or changing a var in
+  `wrangler.jsonc`.
+
+The deploy needs two repository secrets:
 
 | Secret | Where to get it |
 |---|---|
 | `CLOUDFLARE_API_TOKEN` | Dashboard → My Profile → API Tokens → Create → "Edit Cloudflare Workers" template |
 | `CLOUDFLARE_ACCOUNT_ID` | Dashboard → Workers & Pages → Overview (right-hand column) |
 
-Add them under Settings → Secrets and variables → Actions. The deploy job uses
-a `production` environment; create it (Settings → Environments) if you want
-required reviewers before a deploy.
+Add them under Settings → Secrets and variables → Actions as repository
+secrets (the deploy workflow checks for the token before it enters the
+environment, so environment-scoped secrets are not seen). Without
+`CLOUDFLARE_API_TOKEN` the `deploy` job is skipped and the run stays green, so
+a fork gets the checks only. The deploy job uses a `production` environment;
+create it (Settings → Environments) if you want required reviewers before a
+deploy. Deploys queue rather than cancel one another.
 
 Pull requests never deploy and never see the Cloudflare secrets, including
 PRs from forks. To block merging until checks pass, add a branch protection
 rule (or ruleset) on `main` under Settings → Branches with "Require status
-checks to pass" and select `check`. GitHub only offers it once the job has
-run at least once.
+checks to pass" and select `check` (from CI). Do not add the Deploy jobs: they
+run only after merge, so a PR would wait on them forever. GitHub only offers
+`check` once the job has run at least once.
 
 ### Dependency updates
 
 `.github/dependabot.yml` asks Dependabot for monthly pull requests: npm
 packages (through `package.json` and `bun.lock`) and the GitHub Actions the
-workflow uses. Minor and patch bumps are grouped into one PR per ecosystem;
+workflows use. Minor and patch bumps are grouped into one PR per ecosystem;
 each major version gets its own. They are ordinary PRs, so they run `check`
 and never deploy. Nothing merges automatically.
 
