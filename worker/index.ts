@@ -50,6 +50,18 @@ const REDEEM_ERRORS: Record<
 
 const CODE_ATTEMPTS = 5;
 
+/**
+ * On every response the Worker makes itself (static assets get theirs from
+ * public/_headers). None of these is a page, so nothing may run, load or
+ * frame it.
+ */
+export const API_HEADERS = {
+  'content-security-policy': "default-src 'none'; frame-ancestors 'none'",
+  'x-content-type-options': 'nosniff',
+  'x-frame-options': 'DENY',
+  'referrer-policy': 'no-referrer',
+} as const;
+
 export default {
   async fetch(request, env): Promise<Response> {
     const url = new URL(request.url);
@@ -114,6 +126,7 @@ export default {
           }
           return new Response(body, {
             headers: {
+              ...API_HEADERS,
               'content-type': EXPORT_FORMATS[format].contentType,
               'content-disposition': `attachment; filename="retro-${code}.${format}"`,
               'cache-control': 'no-store',
@@ -135,7 +148,7 @@ export default {
           }
           const result = await stub.destroy(token);
           if (result === 'ok') {
-            return new Response(null, { status: 204 });
+            return new Response(null, { status: 204, headers: API_HEADERS });
           }
           if (result === 'forbidden') {
             return json({ error: 'Only the board owner can delete it' }, 403);
@@ -152,11 +165,17 @@ export default {
       const wsMatch = pathname.match(/^\/ws\/([^/]+)$/);
       if (wsMatch) {
         if (request.headers.get('Upgrade') !== 'websocket') {
-          return new Response('Expected a WebSocket upgrade', { status: 426 });
+          return new Response('Expected a WebSocket upgrade', {
+            status: 426,
+            headers: API_HEADERS,
+          });
         }
         const code = normalizeCode(decodeURIComponent(wsMatch[1]));
         if (!isValidCode(code)) {
-          return new Response('That is not a board code', { status: 400 });
+          return new Response('That is not a board code', {
+            status: 400,
+            headers: API_HEADERS,
+          });
         }
         // Upgrades must travel as a fetch; RPC cannot carry a socket.
         return env.BOARD.getByName(code).fetch(request);
@@ -289,6 +308,7 @@ function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
+      ...API_HEADERS,
       'content-type': 'application/json; charset=utf-8',
       'cache-control': 'no-store',
     },

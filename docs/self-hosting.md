@@ -247,9 +247,26 @@ rendered from `docs/brand/mark.svg`; nothing else needs to change.
 
 ## Response headers
 
-`public/_headers` sets `Referrer-Policy: same-origin` on everything the
-Worker serves (Cloudflare's static assets read that file). Keep it if you
-serve the built files some other way: a board URL carries its code, and the
-Analysis panel's model download fails without it, because Hugging Face
-rejects requests whose `Referer` is a `*.workers.dev` page. The worker
-script's own response header is what governs those requests.
+`public/_headers` sets the headers for the static assets (Cloudflare's
+static assets read that file). Keep them if you serve the built files some
+other way:
+
+- `Referrer-Policy: same-origin`: a board URL carries its code, and the
+  Analysis panel's model download fails without it, because Hugging Face
+  rejects requests whose `Referer` is a `*.workers.dev` page. The worker
+  script's own response header is what governs those requests.
+- `Content-Security-Policy`: only this origin's scripts, plus the inline
+  theme script in `index.html` by hash, WebAssembly for the analysis model,
+  and Turnstile. Connections go to this origin (the board socket), Hugging
+  Face and `raw.githubusercontent.com` (the model). The app can't be
+  framed. If you change the inline script, `npm test` fails and prints the
+  hash to put in `_headers`. If you point the analysis at another model
+  host, add it to `connect-src`.
+- `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, and a
+  `Permissions-Policy` that turns off camera, microphone, location and
+  device APIs the app never uses.
+
+The Worker's own responses (`/api`, `/ws`) carry `nosniff`, a
+`default-src 'none'` CSP and `frame-ancestors 'none'`, set in
+`worker/index.ts`. `npm run dev` doesn't apply `_headers`;
+`npx vite preview` after a build does.

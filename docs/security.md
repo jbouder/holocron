@@ -185,13 +185,17 @@ daily wipe caps how long any find is useful.
 
 ### Transport and headers
 
-- Static assets: `Referrer-Policy: same-origin` only. Worker responses:
-  `content-type` and `cache-control: no-store`.
-- No CSP, `frame-ancestors`, `nosniff` or `Permissions-Policy`
-  ([#69](https://github.com/jbouder/holocron/issues/69)). A CSP has to allow
-  the inline theme script in `index.html` (by hash), Turnstile
-  (`challenges.cloudflare.com`), WebLLM's model and library downloads, and
-  `'wasm-unsafe-eval'`.
+- Static assets (`public/_headers`): a CSP with no inline script except the
+  theme script by hash (pinned by `test/headers.test.ts`), `'wasm-unsafe-eval'`
+  for WebLLM, Turnstile for script and frame, `connect-src` limited to this
+  origin, Hugging Face and `raw.githubusercontent.com`, and
+  `frame-ancestors 'none'`. Also `nosniff`, `X-Frame-Options: DENY`,
+  `Permissions-Policy` and `Referrer-Policy: same-origin`. Worker responses:
+  `nosniff`, `default-src 'none'; frame-ancestors 'none'`,
+  `Referrer-Policy: no-referrer`
+  (fixed in [#69](https://github.com/jbouder/holocron/issues/69)).
+  `style-src` allows `'unsafe-inline'` for style attributes set by Turnstile
+  and the UI library.
 - WebSocket `Origin` isn't checked. That's acceptable: the socket carries no
   ambient credentials (no cookies). Every credential is in the URL, which a
   cross-site page can only build if it already has the secrets.
@@ -211,7 +215,6 @@ No action beyond `bun update` when shadcn bumps it.
 
 | # | Severity | Finding |
 | --- | --- | --- |
-| [#69](https://github.com/jbouder/holocron/issues/69) | Medium | No CSP / frame-ancestors / nosniff / Permissions-Policy |
 | [#70](https://github.com/jbouder/holocron/issues/70) | Medium | Board-code probing isn't rate-limited |
 | [#71](https://github.com/jbouder/holocron/issues/71) | Medium | Unbounded sockets; seats never released |
 | [#72](https://github.com/jbouder/holocron/issues/72) | Low | Action items and the `groupCards` target ignore the facilitation lock |
