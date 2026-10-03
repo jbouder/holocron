@@ -134,7 +134,7 @@ function CreatePanel({
       </CardHeader>
       <CardContent>
         <form onSubmit={submit} className="grid gap-5">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-x-2 gap-y-4 sm:grid-cols-2 xl:grid-cols-3">
             <div className="grid gap-2">
               <Label htmlFor="create-name">Your name</Label>
               <Input
