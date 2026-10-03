@@ -24,8 +24,11 @@ export type ConnectionStatus =
   | 'refused'
   /** Every seat (or socket) on the board is taken. */
   | 'full'
-  /** This participant already has the board open in too many tabs. */
-  | 'tabs';
+  /**
+   * A newer tab of this participant took this one's place (past the tab
+   * cap, the newest tab wins).
+   */
+  | 'replaced';
 
 interface Pending {
   opId: string;
@@ -246,9 +249,11 @@ export function useBoard(
         }
         if (
           event.code === 1008 &&
-          (event.reason === 'full' || event.reason === 'tabs')
+          (event.reason === 'full' || event.reason === 'replaced')
         ) {
           // Nothing changes by retrying on our own; a reload tries again.
+          // A replaced tab that retried would evict the tab that replaced
+          // it, and the two would take turns forever.
           closedForGood.current = true;
           setStatus(event.reason);
           return;
@@ -275,7 +280,11 @@ export function useBoard(
       });
     };
 
-    connect();
+    // A tick late, so an effect torn down at once (StrictMode's double mount
+    // in dev) never opens a socket. Closing one that is still connecting
+    // sends no close frame, and the server would hold it, half-open, as one
+    // of this participant's tabs.
+    reconnectTimer = window.setTimeout(connect, 0);
 
     return () => {
       cancelled = true;

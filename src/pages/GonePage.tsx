@@ -24,9 +24,9 @@ const COPY = {
     title: 'This board is full',
     body: `A board seats ${LIMITS.participantsMax} people and everyone on it has joined in. A seat frees up when someone who left without adding anything is replaced. Try again in a bit, or start a new board.`,
   },
-  tabs: {
-    title: 'This board is open in too many tabs',
-    body: `This browser already has it open in ${LIMITS.socketsPerParticipant} tabs. Close one, then reload this page.`,
+  replaced: {
+    title: 'This board moved to another tab',
+    body: `This browser can have it open in ${LIMITS.socketsPerParticipant} tabs at once, and a newer tab took this one’s place. Reload to use it here instead.`,
   },
 } as const;
 
@@ -37,8 +37,8 @@ export function GonePage({
   reason: keyof typeof COPY;
   code?: string;
 }) {
-  // A full board is still there; keep it in the recent list.
-  if (code && reason !== 'full' && reason !== 'tabs') {
+  // A full or replaced board is still there; keep it in the recent list.
+  if (code && reason !== 'full' && reason !== 'replaced') {
     forgetBoard(code);
   }
   const copy = COPY[reason];
