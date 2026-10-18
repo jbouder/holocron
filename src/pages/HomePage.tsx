@@ -17,6 +17,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { formatRemaining, useNow } from '@/hooks/useNow';
+import { usePageTitle } from '@/hooks/usePageTitle';
 import { ApiError, createBoard, getBoardMeta } from '@/lib/api';
 import {
   setName as saveName,
@@ -33,6 +34,7 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/providers/ToastProvider';
 
 export function HomePage() {
+  usePageTitle();
   const config = useConfig();
   return (
     <div className="flex w-full flex-1 flex-col gap-8 px-4 py-10 sm:px-6 lg:py-10">
@@ -50,7 +52,7 @@ export function HomePage() {
         </p>
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr] xl:grid-cols-[2fr_1fr]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <CreatePanel turnstileSiteKey={config?.turnstileSiteKey ?? null} />
         <div className="flex flex-col gap-6">
           <JoinPanel />
@@ -344,7 +346,7 @@ function RecentPanel() {
         {recent.map((board) => (
           <div
             key={board.code}
-            className="group flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-muted/60"
+            className="group flex min-w-0 items-center gap-3 rounded-md px-2 py-1.5 hover:bg-muted/60"
           >
             <a
               {...linkProps({ name: 'board', code: board.code })}

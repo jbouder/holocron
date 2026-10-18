@@ -100,7 +100,7 @@ export function BoardToolbar({
                 render={
                   <button
                     type="button"
-                    className="code-display press rounded-md border px-2 py-0.5 text-xs text-muted-foreground hover:bg-muted"
+                    className="code-display press inline-flex min-h-6 items-center rounded-md border px-2 py-0.5 text-xs text-muted-foreground hover:bg-muted"
                     onClick={() => setSharing(true)}
                   />
                 }
@@ -125,7 +125,7 @@ export function BoardToolbar({
             </TooltipContent>
           </Tooltip>
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex flex-wrap items-center gap-2">
             <Presence
               board={board}
               youId={you.id}
@@ -208,7 +208,7 @@ export function BoardToolbar({
             enabled={canFacilitate}
             onChange={(phase) => dispatch({ type: 'setPhase', phase })}
           />
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex flex-wrap items-center gap-2">
             {board.phase === 'write' && (
               <Button
                 variant={imDone ? 'secondary' : 'outline'}
@@ -385,7 +385,7 @@ function EditableTitle({
         {editable ? (
           <button
             type="button"
-            className="truncate rounded-md text-left outline-ring/50 hover:underline hover:underline-offset-4 focus-visible:outline-2"
+            className="max-w-full truncate rounded-md text-left outline-ring hover:underline hover:underline-offset-4 focus-visible:underline focus-visible:underline-offset-4 focus-visible:outline-2 focus-visible:-outline-offset-2"
             onClick={() => {
               setDraft(title);
               setEditing(true);

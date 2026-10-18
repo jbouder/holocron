@@ -6,6 +6,7 @@ import { BoardToolbar } from '@/components/board/BoardToolbar';
 import { Columns } from '@/components/board/Columns';
 import { NameDialog } from '@/components/NameDialog';
 import { useBoard } from '@/hooks/useBoard';
+import { usePageTitle } from '@/hooks/usePageTitle';
 import { ApiError, getBoardMeta } from '@/lib/api';
 import {
   clearOwnerToken,
@@ -24,6 +25,7 @@ import { useToast } from '@/providers/ToastProvider';
  * the live connection to the toolbar and the columns.
  */
 export function BoardPage({ code }: { code: string }) {
+  usePageTitle(`Board ${code}`);
   const identity = useIdentity();
   const toast = useToast();
   const { active } = useMotion();

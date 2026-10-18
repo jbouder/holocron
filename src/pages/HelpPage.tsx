@@ -4,6 +4,7 @@ import { LIMITS } from '#shared/limits';
 import { TEMPLATES } from '#shared/templates';
 import { DEFAULT_SETTINGS, REACTIONS } from '#shared/types';
 import { Badge } from '@/components/ui/badge';
+import { usePageTitle } from '@/hooks/usePageTitle';
 import { ANALYSIS_MODELS, MODEL_SOURCE } from '@/lib/analysis';
 import { linkProps, navigate, useRoute } from '@/lib/router';
 import { cn } from '@/lib/utils';
@@ -16,6 +17,7 @@ import { useToast } from '@/providers/ToastProvider';
  * not here.
  */
 export function HelpPage() {
+  usePageTitle('Help');
   const config = useConfig();
   const resetLabel = config?.resetLabel ?? '6:00 AM ET';
 

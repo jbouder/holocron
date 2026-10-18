@@ -1,5 +1,6 @@
 import { LIMITS } from '#shared/limits';
 import { Button } from '@/components/ui/button';
+import { usePageTitle } from '@/hooks/usePageTitle';
 import { forgetBoard } from '@/lib/recent-boards';
 import { linkProps } from '@/lib/router';
 
@@ -46,6 +47,7 @@ export function GonePage({
     forgetBoard(code);
   }
   const copy = COPY[reason];
+  usePageTitle(copy.title);
   return (
     <div className="flex w-full flex-1 flex-col items-center justify-center gap-6 px-4 py-16 text-center">
       <div
