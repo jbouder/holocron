@@ -201,7 +201,7 @@ export async function participantId(page: Page): Promise<string> {
 }
 
 /**
- * axe-core over the whole page against WCAG 2.1 A and AA, open dialogs and
+ * axe-core over the whole page against WCAG 2.2 A and AA, open dialogs and
  * the page under them alike. Soft, so one run lists every page and dialog
  * that fails, not just the first.
  */
@@ -217,7 +217,7 @@ export async function expectAccessible(page: Page) {
     ),
   );
   const { violations } = await new AxeBuilder({ page })
-    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
     .analyze();
   const summary = violations.map((v) => ({
     id: v.id,

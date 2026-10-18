@@ -48,14 +48,14 @@ export function PhaseStepper({
                   'cursor-default opacity-60 hover:text-muted-foreground',
               )}
             >
-              <span className="tabular opacity-70">{i + 1}</span>
+              <span className="tabular">{i + 1}</span>
               {LABELS[p].title}
               {active && (
                 <span
                   aria-hidden="true"
                   className="phase-active absolute inset-0 flex items-center gap-1.5 rounded-md bg-foreground px-3 text-background"
                 >
-                  <span className="tabular opacity-70">{i + 1}</span>
+                  <span className="tabular">{i + 1}</span>
                   {LABELS[p].title}
                 </span>
               )}

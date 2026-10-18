@@ -4,6 +4,7 @@ import {
   addCard,
   boardMenu,
   card,
+  createBoard,
   expect,
   expectAccessible,
   setPhase,
@@ -143,3 +144,11 @@ for (const theme of CHECKED) {
     });
   });
 }
+
+// WCAG 2.5.8: axe only fails a small target when its neighbours crowd it,
+// which depends on the board title's length, so measure the code directly.
+test('the board code button is at least 24px tall', async ({ page }) => {
+  const code = await createBoard(page);
+  const box = await page.getByRole('button', { name: code }).boundingBox();
+  expect(box?.height ?? 0).toBeGreaterThanOrEqual(24);
+});
