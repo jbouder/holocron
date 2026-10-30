@@ -17,6 +17,7 @@ Automated, on every pull request (CI's `check` job runs the unit tests, its
 | Reflow at 320px (a 1280px window at 400% zoom): a board with a long title keeps every toolbar control on screen, and the home page lists recent boards, with no sideways scrolling | `e2e/reflow.spec.ts` |
 | Every page has its own title (a board's is its code, not its title) | `e2e/reflow.spec.ts` |
 | From the keyboard: the phase stepper, the Export tabs and their preview, Esc closes every dialog, sheet and menu, and `?` opens Help but not while typing | `e2e/keyboard.spec.ts` |
+| Focus returns to the control that opened Share, Export, Board settings, Action items, Analysis and the Board actions, card and Preferences menus, closed with Esc and with Close; a card deleted from its own menu leaves focus on its column | `e2e/focus.spec.ts` |
 | Motion off, by either switch (the system's `prefers-reduced-motion`, or Preferences → Motion with the system setting left on): nothing animates through a phase change, against a control that sees motion when both are on | `e2e/motion.spec.ts` |
 | The time-up tab title holds still with motion off instead of flashing | `test/timer-alert.test.ts` |
 

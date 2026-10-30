@@ -78,6 +78,9 @@ export function CardView({
   const ref = useRef<HTMLElement>(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(card.text);
+  // Delete waits for its menu to finish closing: the menu hands focus back
+  // to its trigger, which goes with the card, so the column takes it first.
+  const removing = useRef(false);
 
   // Anonymous cards carry no author id; `you` lists the ones that are yours.
   const mine = isCardAuthor(card, you);
@@ -239,7 +242,14 @@ export function CardView({
         )}
 
         {(canEdit || canAddAction) && !editing && (
-          <DropdownMenu>
+          <DropdownMenu
+            onOpenChangeComplete={(open) => {
+              if (!open && removing.current) {
+                ref.current?.closest('section')?.focus();
+                void remove();
+              }
+            }}
+          >
             <DropdownMenuTrigger
               render={
                 <Button
@@ -276,7 +286,12 @@ export function CardView({
               {canEdit && (
                 <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem variant="destructive" onClick={remove}>
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={() => {
+                      removing.current = true;
+                    }}
+                  >
                     <TrashIcon />
                     Delete
                   </DropdownMenuItem>

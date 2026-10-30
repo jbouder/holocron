@@ -186,9 +186,11 @@ function ColumnView({
 
   return (
     <section
-      className="stagger-in flex min-h-[50dvh] flex-col rounded-lg border bg-card/40"
+      className="stagger-in flex min-h-[50dvh] flex-col rounded-lg border bg-card/40 outline-ring/50 focus-visible:outline-2"
       style={{ '--i': index } as React.CSSProperties}
       aria-label={title}
+      // Takes focus from a card deleted out from under it (CardView).
+      tabIndex={-1}
     >
       <header className="flex items-center gap-2 px-3 pt-3 pb-2">
         {renaming ? (
