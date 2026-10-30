@@ -19,6 +19,10 @@ Runs entirely on Cloudflare: one Worker serves the app, and each board is a
 SQLite-backed Durable Object that holds the data, pushes live updates over
 WebSockets, and wipes itself on an alarm.
 
+![A board in Discuss: three Start / Stop / Continue columns sorted by votes, two Friday cards grouped with five votes between them, emoji reactions on cards](docs/screenshots/discuss-light.png)
+
+![The same board in Write, seen by another participant in the Dark theme: their own cards readable, everyone else's blurred until the phase ends](docs/screenshots/write-dark.png)
+
 ## Features
 
 - **Boards and codes.** Anyone can create a board. The six-character code (or
