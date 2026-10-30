@@ -17,7 +17,7 @@ Automated, on every pull request (CI's `check` job runs the unit tests, its
 | A phone (Pixel 7: touch, no hover, 412px wide) runs the axe, target-size, whole-retro and reflow specs | `phone` project in `playwright.config.ts` |
 | Reflow at 320px (a 1280px window at 400% zoom): a board with a long title keeps every toolbar control on screen, and the home page lists recent boards, with no sideways scrolling | `e2e/reflow.spec.ts` |
 | Every page has its own title (a board's is its code, not its title) | `e2e/reflow.spec.ts` |
-| From the keyboard: the phase stepper, the Export tabs and their preview, Esc closes every dialog, sheet and menu, and `?` opens Help but not while typing | `e2e/keyboard.spec.ts` |
+| From the keyboard: the phase stepper, the Export tabs and their preview, grouping a card and moving it to another column from its menu (focus and announcement checked, axe with the submenu open), Esc closes every dialog, sheet and menu, and `?` opens Help but not while typing | `e2e/keyboard.spec.ts` |
 | Focus returns to the control that opened Share, Export, Board settings, Action items, Analysis and the Board actions, card and Preferences menus, closed with Esc and with Close; a card deleted from its own menu leaves focus on its column | `e2e/focus.spec.ts` |
 | Motion off, by either switch (the system's `prefers-reduced-motion`, or Preferences → Motion with the system setting left on): nothing animates through a phase change, against a control that sees motion when both are on | `e2e/motion.spec.ts` |
 | Forced colours (emulated): the current phase, a pressed toggle and the selected tab get an outline in the system's `Highlight` colour, and nothing does without forced colours | `e2e/forced-colors.spec.ts` |
@@ -37,21 +37,23 @@ Manual, before each release (record the date and anything found):
 
 Grouping and moving cards is a drag: a card's handle onto another card
 groups them, onto an empty part of a column moves it. It works with a mouse,
-a pen or one finger (the handle shows on touch screens without hover).
+a pen or one finger (the handle shows on touch screens without hover). The
+handle is pointer-only and out of the tab order; the card's menu does the
+same from the keyboard or with single taps, under the same facilitation
+lock, then puts focus back on the card's `⋯` and announces what happened.
 
 | Drag | Another way |
 |---|---|
-| Group a card onto another | None for everyone yet (see below; #102). The owner's Analysis, in Discuss, can suggest groupings to accept with a button. |
-| Move a card or group to another column | None yet (#102) |
+| Group a card onto another | **Group with…** in the card's `⋯` menu: pick a card in the same column. The owner's Analysis, in Discuss, can also suggest groupings to accept with a button. |
+| Move a card or group to another column | **Move to column…** in the card's `⋯` menu (it goes to the end of that column) |
 | Pull a card out of a group | Not a drag: Ungroup, on the card and in its `⋯` menu |
 
 ## Known exceptions
 
-- **Grouping and moving cards need a drag** (2.1.1 Keyboard, 2.5.7 Dragging
-  Movements). The handle, "Drag to group or move", takes focus but does
-  nothing from the keyboard, and there is no single-pointer way to do either.
-  Everything else in a retro works without them. #102 adds menu items for
-  both.
+- **Reordering within a column needs a drag.** Move to column… puts a card
+  at the end of the other column; placing it between two cards there, or
+  reordering in its own column, is drag only. In Discuss the order is by
+  votes anyway.
 - **Only Chromium is automated**, at desktop size, at 320px wide and as an
   emulated phone. Safari and Firefox are not run, and a real touch screen is
   checked by hand (VoiceOver on iOS, below).
