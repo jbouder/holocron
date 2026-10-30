@@ -29,7 +29,7 @@ Manual, before each release (record the date and anything found):
 |---|---|---|
 | VoiceOver on macOS (Safari): create a board, post a card, vote, comment, react, add an action item, export | _not yet recorded_ | |
 | VoiceOver on iOS (Safari): join a board by its code and run the same retro | _not yet recorded_ | |
-| Keyboard only, no mouse, through a whole retro as owner and as participant | _not yet recorded_ | The automated specs cover the stepper, Export and dialogs. |
+| Keyboard only, no mouse, through a whole retro as owner and as participant | _not yet recorded_ | The automated specs cover the stepper, Export, grouping and moving a card, and focus returning from dialogs and menus. |
 | 200% browser zoom on desktop | _not yet recorded_ | Reflow at 320px is automated. |
 | Forced colours on Windows (Contrast themes) | _not yet recorded_ | The outlines are automated under Chromium's emulation; this checks a real Contrast theme's colours. |
 
