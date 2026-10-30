@@ -17,7 +17,7 @@ Automated, on every pull request (CI's `check` job runs the unit tests, its
 | Reflow at 320px (a 1280px window at 400% zoom): a board with a long title keeps every toolbar control on screen, and the home page lists recent boards, with no sideways scrolling | `e2e/reflow.spec.ts` |
 | Every page has its own title (a board's is its code, not its title) | `e2e/reflow.spec.ts` |
 | From the keyboard: the phase stepper, the Export tabs and their preview, Esc closes every dialog, sheet and menu, and `?` opens Help but not while typing | `e2e/keyboard.spec.ts` |
-| Reduced motion (`prefers-reduced-motion`): nothing animates through a phase change, against a control that sees motion when it is on | `e2e/motion.spec.ts` |
+| Motion off, by either switch (the system's `prefers-reduced-motion`, or Preferences → Motion with the system setting left on): nothing animates through a phase change, against a control that sees motion when both are on | `e2e/motion.spec.ts` |
 | The time-up tab title holds still with motion off instead of flashing | `test/timer-alert.test.ts` |
 
 Manual, before each release (record the date and anything found):
@@ -28,7 +28,6 @@ Manual, before each release (record the date and anything found):
 | VoiceOver on iOS (Safari): join a board by its code and run the same retro | _not yet recorded_ | |
 | Keyboard only, no mouse, through a whole retro as owner and as participant | _not yet recorded_ | The automated specs cover the stepper, Export and dialogs. |
 | 200% browser zoom on desktop | _not yet recorded_ | Reflow at 320px is automated. |
-| Preferences → Motion off: nothing animates | _not yet recorded_ | Only the system setting is automated (#104). |
 | Forced colours on Windows (Contrast themes) | _not yet recorded_ | Nothing styles or checks it yet (#103). |
 
 ## Dragging

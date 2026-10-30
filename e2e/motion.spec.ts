@@ -54,6 +54,28 @@ test.describe('with prefers-reduced-motion: reduce', () => {
   });
 });
 
+test.describe('with Preferences → Motion off', () => {
+  // The system setting stays on, so only the app's own switch can stop it.
+  test.use({ reducedMotion: 'no-preference' });
+
+  test('nothing animates through a phase change', async ({ page }) => {
+    await createBoard(page);
+    await page.getByRole('button', { name: 'Preferences' }).click();
+    const motion = page.getByRole('menuitemcheckbox', { name: 'Motion' });
+    await expect(motion).toBeChecked();
+    await motion.click();
+    await expect(motion).not.toBeChecked();
+    await page.keyboard.press('Escape');
+    await expect(motion).toBeHidden();
+    await expect(page.locator('html')).toHaveAttribute('data-motion', 'off');
+    // Let the menu's own exit finish before the probe starts watching.
+    await page.evaluate(() =>
+      Promise.all(document.getAnimations().map((a) => a.finished)),
+    );
+    expect(await animationsDuringPhaseChange(page)).toEqual([]);
+  });
+});
+
 // The control: the probe above is only worth something if it sees motion
 // when motion is on.
 test.describe('with motion on', () => {
