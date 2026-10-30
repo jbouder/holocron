@@ -31,7 +31,8 @@ itself on an alarm.
   limiter is live in Miniflare), blocks every request off localhost, and
   offers a second participant as `peer`.
 - `docs/` — self-hosting, architecture, data retention, security (threat
-  model + review findings). The in-app Help page
+  model + review findings), accessibility (the conformance statement, what
+  checks it, the known exceptions). The in-app Help page
   (`src/pages/HelpPage.tsx`) covers *using* the tool only.
 
 ## Stack

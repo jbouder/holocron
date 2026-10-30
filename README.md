@@ -119,7 +119,9 @@ Change the reset time with the `RESET_TZ` and `RESET_HOUR` vars in
 `wrangler.jsonc`.
 
 Also: [docs/architecture.md](docs/architecture.md) for how it fits together,
-and [docs/security.md](docs/security.md) for the threat model and review.
+[docs/security.md](docs/security.md) for the threat model and review, and
+[docs/accessibility.md](docs/accessibility.md) for the WCAG 2.2 AA
+conformance statement.
 
 ## Stack
 
