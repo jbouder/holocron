@@ -212,7 +212,7 @@ export function ActionItemsSheet({
                   <div className="min-w-0 flex-1">
                     <label
                       htmlFor={`ai-${item.id}`}
-                      className="block cursor-pointer text-sm"
+                      className="toggle-label block cursor-pointer text-sm"
                     >
                       <span className={cn(item.done && 'line-through')}>
                         {item.text}

@@ -140,7 +140,7 @@ function CommentItem({
             variant="ghost"
             size="icon-xs"
             aria-label="Edit comment"
-            className="press size-5 opacity-60 group-focus-within/comment:opacity-100 group-hover/comment:opacity-100 hover-none:opacity-100"
+            className="press opacity-60 group-focus-within/comment:opacity-100 group-hover/comment:opacity-100 hover-none:opacity-100"
             onClick={() => {
               setDraft(comment.text);
               setEditing(true);
@@ -154,7 +154,7 @@ function CommentItem({
             variant="ghost"
             size="icon-xs"
             aria-label="Delete comment"
-            className="press size-5 opacity-60 group-focus-within/comment:opacity-100 group-hover/comment:opacity-100 hover-none:opacity-100"
+            className="press opacity-60 group-focus-within/comment:opacity-100 group-hover/comment:opacity-100 hover-none:opacity-100"
             onClick={() => dispatch({ type: 'deleteComment', id: comment.id })}
           >
             <TrashIcon />
