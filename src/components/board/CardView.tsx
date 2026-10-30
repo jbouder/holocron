@@ -1,5 +1,6 @@
 import {
   ArrowFatUpIcon,
+  ArrowRightIcon,
   CheckSquareIcon,
   DotsSixVerticalIcon,
   DotsThreeIcon,
@@ -18,6 +19,7 @@ import { LIMITS } from '#shared/limits';
 import type { Op, You } from '#shared/protocol';
 import {
   canArrange,
+  cardsInColumn,
   isCardAuthor,
   isCardHidden,
   isCardSealed,
@@ -30,6 +32,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
@@ -42,6 +47,7 @@ import type { useCardDrag } from '@/hooks/useCardDrag';
 import { animateOut } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import { useMotion } from '@/providers/MotionProvider';
+import { useToast } from '@/providers/ToastProvider';
 import { useAddActionForCard } from './action-link';
 import { CommentThread, CommentToggle, commentsOn } from './CardComments';
 import { ReactionChips, ReactionPicker } from './CardReactions';
@@ -65,6 +71,24 @@ interface CardViewProps {
  */
 const HIDDEN_TEXT = 'Hidden until the Write phase ends';
 
+/**
+ * After a card moves it renders in a new place (another column, or into a
+ * group), so focus its actions button there once it has. A few frames covers
+ * the optimistic render; if the card is gone by then, focus stays put.
+ */
+function focusCardActions(id: string, frames = 10) {
+  requestAnimationFrame(() => {
+    const button = document.querySelector<HTMLElement>(
+      `article[data-card-id="${CSS.escape(id)}"] [aria-label="Card actions"]`,
+    );
+    if (button) {
+      button.focus();
+    } else if (frames > 1) {
+      focusCardActions(id, frames - 1);
+    }
+  });
+}
+
 export function CardView({
   card,
   votes,
@@ -81,6 +105,9 @@ export function CardView({
   // Delete waits for its menu to finish closing: the menu hands focus back
   // to its trigger, which goes with the card, so the column takes it first.
   const removing = useRef(false);
+  // Group with… and Move to column… wait the same way, then follow the card.
+  const arranging = useRef<{ op: Op; done: string } | null>(null);
+  const toast = useToast();
 
   // Anonymous cards carry no author id; `you` lists the ones that are yours.
   const mine = isCardAuthor(card, you);
@@ -102,6 +129,23 @@ export function CardView({
     you,
   );
   const blurred = isCardHidden(board, card, you);
+  // The drag's other ways, from the menu: the same targets it would accept,
+  // asked of the reducer the same way.
+  const groupTargets = cardsInColumn(board, card.columnId).filter(
+    (c) =>
+      c.id !== card.id &&
+      !(card.groupId !== null && c.groupId === card.groupId) &&
+      canArrange(
+        board,
+        { type: 'groupCards', id: card.id, targetId: c.id, groupId: card.id },
+        you,
+      ),
+  );
+  const moveTargets = canDrag
+    ? [...board.columns]
+        .sort((a, b) => a.position - b.position)
+        .filter((c) => c.id !== card.columnId)
+    : [];
   // Reactions, comments and action item links, which would name whoever
   // added them: open to anyone who can read the card, except on an anonymous
   // card only its author can read yet (that would unmask them).
@@ -117,6 +161,11 @@ export function CardView({
       ?.count ?? 0;
   const votesLeft = board.settings.votesPerPerson - votesUsed(board, you.id);
   const canInlineEdit = mine && !blurred;
+  const hasMenu =
+    canEdit ||
+    canAddAction ||
+    groupTargets.length > 0 ||
+    moveTargets.length > 0;
   const lastTap = useRef({ time: 0, x: 0, y: 0 });
 
   function startEdit() {
@@ -186,6 +235,9 @@ export function CardView({
         <button
           type="button"
           aria-label="Drag to group or move"
+          // Pointer only: the card's menu groups and moves from the keyboard,
+          // so the handle stays out of the tab order.
+          tabIndex={-1}
           className="absolute inset-y-0 left-0 flex w-7 items-start justify-center rounded-l-lg pt-3.5 text-muted-foreground/60 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover-none:opacity-100 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring/50"
           {...handleProps(card.id, card.groupId)}
         >
@@ -241,12 +293,19 @@ export function CardView({
           </p>
         )}
 
-        {(canEdit || canAddAction) && !editing && (
+        {hasMenu && !editing && (
           <DropdownMenu
             onOpenChangeComplete={(open) => {
               if (!open && removing.current) {
                 ref.current?.closest('section')?.focus();
                 void remove();
+              }
+              if (!open && arranging.current) {
+                const { op, done } = arranging.current;
+                arranging.current = null;
+                dispatch(op);
+                toast.show(done);
+                focusCardActions(card.id);
               }
             }}
           >
@@ -275,6 +334,68 @@ export function CardView({
                   Add action item
                 </DropdownMenuItem>
               )}
+              {groupTargets.length > 0 && (
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <StackSimpleIcon />
+                    Group with…
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    {groupTargets.map((target, i) => {
+                      const label = isCardHidden(board, target, you)
+                        ? `Hidden card ${i + 1}`
+                        : target.text;
+                      return (
+                        <DropdownMenuItem
+                          key={target.id}
+                          onClick={() => {
+                            arranging.current = {
+                              op: {
+                                type: 'groupCards',
+                                id: card.id,
+                                targetId: target.id,
+                                groupId: crypto.randomUUID(),
+                              },
+                              done: `Grouped with "${label}"`,
+                            };
+                          }}
+                        >
+                          <span className="max-w-64 truncate">{label}</span>
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              )}
+              {moveTargets.length > 0 && (
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <ArrowRightIcon />
+                    Move to column…
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    {moveTargets.map((column) => (
+                      <DropdownMenuItem
+                        key={column.id}
+                        onClick={() => {
+                          arranging.current = {
+                            op: {
+                              type: 'moveCard',
+                              id: card.id,
+                              columnId: column.id,
+                            },
+                            done: `Moved to ${column.title}`,
+                          };
+                        }}
+                      >
+                        <span className="max-w-64 truncate">
+                          {column.title}
+                        </span>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              )}
               {card.groupId !== null && canUngroup && (
                 <DropdownMenuItem
                   onClick={() => dispatch({ type: 'ungroupCard', id: card.id })}
@@ -300,30 +421,24 @@ export function CardView({
             </DropdownMenuContent>
           </DropdownMenu>
         )}
-        {!canEdit &&
-          !canAddAction &&
-          card.groupId !== null &&
-          canUngroup &&
-          !editing && (
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    aria-label="Ungroup"
-                    className="press -mt-1 -mr-1.5 shrink-0 opacity-50 group-focus-within:opacity-100 group-hover:opacity-100 hover-none:opacity-100"
-                    onClick={() =>
-                      dispatch({ type: 'ungroupCard', id: card.id })
-                    }
-                  />
-                }
-              >
-                <StackSimpleIcon />
-              </TooltipTrigger>
-              <TooltipContent>Ungroup</TooltipContent>
-            </Tooltip>
-          )}
+        {!hasMenu && card.groupId !== null && canUngroup && !editing && (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label="Ungroup"
+                  className="press -mt-1 -mr-1.5 shrink-0 opacity-50 group-focus-within:opacity-100 group-hover:opacity-100 hover-none:opacity-100"
+                  onClick={() => dispatch({ type: 'ungroupCard', id: card.id })}
+                />
+              }
+            >
+              <StackSimpleIcon />
+            </TooltipTrigger>
+            <TooltipContent>Ungroup</TooltipContent>
+          </Tooltip>
+        )}
       </div>
 
       {canRespond && (
