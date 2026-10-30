@@ -662,3 +662,23 @@ html[data-motion="off"] {
     translate: 0 8px;
   }
 }
+
+/* ---- Forced colours ----------------------------------------------------- */
+
+/* Windows Contrast themes drop every background, so a state shown only by a
+   fill (the current phase, a pressed toggle, the selected tab, where you are
+   in Help) would look like its neighbours. Each gets an outline in the
+   system's Highlight colour instead. */
+@media (forced-colors: active) {
+  :root {
+    --forced-state-outline: 2px solid Highlight;
+    --forced-state-offset: 1px;
+  }
+
+  [aria-pressed="true"],
+  [aria-selected="true"],
+  [aria-current]:not([aria-current="false"]) {
+    outline: var(--forced-state-outline);
+    outline-offset: var(--forced-state-offset);
+  }
+}
