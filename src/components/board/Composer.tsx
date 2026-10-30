@@ -113,7 +113,7 @@ export function Composer({
               />
               <Label
                 htmlFor={`${id}-anon`}
-                className="text-xs font-normal text-muted-foreground"
+                className="toggle-label text-xs font-normal text-muted-foreground"
               >
                 Post anonymously
               </Label>

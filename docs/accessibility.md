@@ -7,13 +7,14 @@ below. A new exception gets an issue and a line here.
 ## How it is checked
 
 Automated, on every pull request (CI's `check` job runs the unit tests, its
-`e2e` job the browser suite, in Chromium):
+`e2e` job the browser suite, in Chromium at desktop size and as a phone):
 
 | What | Where |
 |---|---|
 | axe (the WCAG 2.0, 2.1 and 2.2 A and AA rules) on the home page, Help, and a live board through Write (with a blurred card), Vote and Discuss (with a comment thread open), with Share, Board settings, Action items, Export and Analysis (at its consent step) open, as the owner and as a participant, in Light, Dark, Dagobah, Tatooine and Kamino | `e2e/a11y.spec.ts`, `expectAccessible()` in `e2e/fixtures.ts` |
 | Contrast of every theme's tokens: text ≥ 4.5:1 on each surface it sits on; the focus ring ≥ 3:1 on the page and on cards | `test/themes.test.ts` |
-| Target size (2.5.8): the board code button is at least 24px tall | `e2e/a11y.spec.ts` |
+| Target size: at every step of the axe walk above, every visible control is at least 24px (2.5.8), and 44px on the phone project's coarse pointer; links in running text are exempt, and a checkbox or switch is measured by its label | `undersizedTargets()` in `e2e/fixtures.ts`, `e2e/a11y.spec.ts` |
+| A phone (Pixel 7: touch, no hover, 412px wide) runs the axe, target-size, whole-retro and reflow specs | `phone` project in `playwright.config.ts` |
 | Reflow at 320px (a 1280px window at 400% zoom): a board with a long title keeps every toolbar control on screen, and the home page lists recent boards, with no sideways scrolling | `e2e/reflow.spec.ts` |
 | Every page has its own title (a board's is its code, not its title) | `e2e/reflow.spec.ts` |
 | From the keyboard: the phase stepper, the Export tabs and their preview, Esc closes every dialog, sheet and menu, and `?` opens Help but not while typing | `e2e/keyboard.spec.ts` |
@@ -51,8 +52,9 @@ a pen or one finger (the handle shows on touch screens without hover).
   nothing from the keyboard, and there is no single-pointer way to do either.
   Everything else in a retro works without them. #102 adds menu items for
   both.
-- **Only Chromium is automated**, at desktop size and at 320px wide. Safari,
-  Firefox and touch are not run (#106).
+- **Only Chromium is automated**, at desktop size, at 320px wide and as an
+  emulated phone. Safari and Firefox are not run, and a real touch screen is
+  checked by hand (VoiceOver on iOS, below).
 - **Analysis is written by a language model**, in the owner's browser. Its
   text is not reviewed for reading level or structure; the owner chooses
   what to accept.

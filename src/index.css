@@ -682,3 +682,39 @@ html[data-motion="off"] {
     outline-offset: var(--forced-state-offset);
   }
 }
+
+/* ---- Target size -------------------------------------------------------- */
+
+/* At least 24px everywhere (WCAG 2.5.8), and a fingertip's 44px on a coarse
+   pointer. A checkbox or switch is tapped through its label, so the label
+   (`.toggle-label`) carries the size instead of the small box. Links inside
+   running text are exempt and stay inline. */
+:root {
+  --target-min: 24px;
+}
+
+.toggle-label {
+  min-block-size: var(--target-min);
+}
+
+@media (pointer: coarse) {
+  :root {
+    --target-min: 44px;
+  }
+
+  :is(
+    button,
+    a[href]:not(p a),
+    select,
+    textarea,
+    summary,
+    input:not([type="checkbox"], [type="radio"], [type="hidden"]),
+    [role="button"],
+    [role="tab"],
+    [role^="menuitem"],
+    [role="option"]
+  ) {
+    min-block-size: var(--target-min);
+    min-inline-size: var(--target-min);
+  }
+}

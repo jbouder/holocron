@@ -65,13 +65,27 @@ export const test = base.extend<Options & Fixtures>({
     await use(context);
   },
   peer: async (
-    { browser, extraHTTPHeaders, reducedMotion, viewport, theme },
+    {
+      browser,
+      extraHTTPHeaders,
+      reducedMotion,
+      viewport,
+      isMobile,
+      hasTouch,
+      userAgent,
+      deviceScaleFactor,
+      theme,
+    },
     use,
   ) => {
     const context = await browser.newContext({
       extraHTTPHeaders,
       reducedMotion,
       viewport,
+      isMobile,
+      hasTouch,
+      userAgent,
+      deviceScaleFactor,
     });
     await offline(context);
     await useTheme(context, theme);
@@ -226,4 +240,68 @@ export async function expectAccessible(page: Page) {
     nodes: v.nodes.map((n) => `${n.target.join(' ')}: ${n.html.slice(0, 160)}`),
   }));
   expect.soft(summary).toEqual([]);
+  expect.soft(await undersizedTargets(page)).toEqual([]);
+}
+
+/**
+ * Every visible control smaller than a finger on a coarse pointer (44px) or
+ * WCAG 2.5.8's 24px otherwise, measured by its box the way the board code
+ * button is. Links inside running text are exempt (2.5.8's inline
+ * exception), and a checkbox or switch is measured by its label, which takes
+ * the same tap.
+ */
+export async function undersizedTargets(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const min = matchMedia('(pointer: coarse)').matches ? 44 : 24;
+    const controls = document.querySelectorAll<HTMLElement>(
+      [
+        'button',
+        'a[href]',
+        'input:not([type="hidden"])',
+        'select',
+        'textarea',
+        'summary',
+        '[role="button"]',
+        '[role="tab"]',
+        '[role="checkbox"]',
+        '[role="switch"]',
+        '[role="radio"]',
+        '[role^="menuitem"]',
+        '[role="option"]',
+      ].join(','),
+    );
+    const small: string[] = [];
+    for (const el of controls) {
+      if (
+        !el.checkVisibility({ visibilityProperty: true }) ||
+        el.matches(':disabled, [aria-disabled="true"], .sr-only') ||
+        el.closest('[inert], [aria-hidden="true"]') ||
+        (el.tagName === 'A' && getComputedStyle(el).display === 'inline')
+      ) {
+        continue;
+      }
+      const label = el.matches(
+        '[role="checkbox"], [role="switch"], [role="radio"]',
+      )
+        ? (el.closest('label') ??
+          document.getElementById(el.getAttribute('aria-labelledby') ?? ''))
+        : null;
+      const target = label?.tagName === 'LABEL' ? label : el;
+      const { width, height } = target.getBoundingClientRect();
+      if (width === 0 || height === 0) {
+        continue;
+      }
+      if (width < min || height < min) {
+        const name =
+          el.getAttribute('aria-label') ||
+          el.textContent?.trim().slice(0, 40) ||
+          el.getAttribute('placeholder') ||
+          '';
+        small.push(
+          `${el.tagName.toLowerCase()}${el.getAttribute('role') ? `[${el.getAttribute('role')}]` : ''} "${name}": ${Math.round(width)}x${Math.round(height)}`,
+        );
+      }
+    }
+    return [...new Set(small)].sort();
+  });
 }

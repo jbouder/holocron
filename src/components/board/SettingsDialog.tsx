@@ -116,7 +116,9 @@ function Row({
   return (
     <div className="flex items-center justify-between gap-4">
       <div>
-        <Label htmlFor={id}>{label}</Label>
+        <Label htmlFor={id} className="toggle-label">
+          {label}
+        </Label>
         <p className="text-xs text-muted-foreground">{hint}</p>
       </div>
       <Switch id={id} checked={checked} onCheckedChange={onChange} />

@@ -28,7 +28,16 @@ export default defineConfig({
     baseURL: `http://localhost:${PORT}`,
     trace: 'retain-on-failure',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    // A phone: touch, no hover, coarse pointer, 412px wide. The specs that
+    // walk the whole UI run here too.
+    {
+      name: 'phone',
+      use: { ...devices['Pixel 7'] },
+      testMatch: /\/(a11y|retro|reflow)\.spec\.ts$/,
+    },
+  ],
   webServer: {
     command: `npx vite build && npx vite preview --port ${PORT} --strictPort`,
     url: `http://localhost:${PORT}`,
