@@ -19,6 +19,7 @@ Automated, on every pull request (CI's `check` job runs the unit tests, its
 | From the keyboard: the phase stepper, the Export tabs and their preview, Esc closes every dialog, sheet and menu, and `?` opens Help but not while typing | `e2e/keyboard.spec.ts` |
 | Focus returns to the control that opened Share, Export, Board settings, Action items, Analysis and the Board actions, card and Preferences menus, closed with Esc and with Close; a card deleted from its own menu leaves focus on its column | `e2e/focus.spec.ts` |
 | Motion off, by either switch (the system's `prefers-reduced-motion`, or Preferences → Motion with the system setting left on): nothing animates through a phase change, against a control that sees motion when both are on | `e2e/motion.spec.ts` |
+| Forced colours (emulated): the current phase, a pressed toggle and the selected tab get an outline in the system's `Highlight` colour, and nothing does without forced colours | `e2e/forced-colors.spec.ts` |
 | The time-up tab title holds still with motion off instead of flashing | `test/timer-alert.test.ts` |
 
 Manual, before each release (record the date and anything found):
@@ -29,7 +30,7 @@ Manual, before each release (record the date and anything found):
 | VoiceOver on iOS (Safari): join a board by its code and run the same retro | _not yet recorded_ | |
 | Keyboard only, no mouse, through a whole retro as owner and as participant | _not yet recorded_ | The automated specs cover the stepper, Export and dialogs. |
 | 200% browser zoom on desktop | _not yet recorded_ | Reflow at 320px is automated. |
-| Forced colours on Windows (Contrast themes) | _not yet recorded_ | Nothing styles or checks it yet (#103). |
+| Forced colours on Windows (Contrast themes) | _not yet recorded_ | The outlines are automated under Chromium's emulation; this checks a real Contrast theme's colours. |
 
 ## Dragging
 
