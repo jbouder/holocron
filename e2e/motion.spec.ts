@@ -12,7 +12,7 @@ async function animationsDuringPhaseChange(page: Page): Promise<string[]> {
     () =>
       new Promise<string[]>((resolve) => {
         const seen = new Set<string>();
-        const describe = (a: Animation) => {
+        const label = (a: Animation) => {
           const effect = a.effect as KeyframeEffect | null;
           const target = effect?.target as HTMLElement | null;
           const name =
@@ -27,7 +27,7 @@ async function animationsDuringPhaseChange(page: Page): Promise<string[]> {
         const tick = () => {
           for (const a of document.getAnimations()) {
             if (a.playState === 'running') {
-              seen.add(describe(a));
+              seen.add(label(a));
             }
           }
           if (performance.now() < end) {

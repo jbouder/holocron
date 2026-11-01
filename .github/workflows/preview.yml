@@ -21,7 +21,7 @@ concurrency:
 env:
   WORKER_NAME: holocron-pr-${{ github.event.pull_request.number }}
   # Marks the one comment this workflow keeps up to date on the PR.
-  MARKER: '<!-- holocron-preview -->'
+  MARKER: "<!-- holocron-preview -->"
   PR_NUMBER: ${{ github.event.pull_request.number }}
 
 jobs:

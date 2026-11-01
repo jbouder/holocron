@@ -39,7 +39,6 @@ jobs:
       - run: bunx vite build
       - run: bunx vitest run
 
-
   # The browser suite (e2e/, Playwright + axe) against the built app under
   # `vite preview`. After `check`, so a lint or type error fails fast.
   e2e:
