@@ -1,5 +1,4 @@
 import type * as React from 'react';
-
 import { cn } from '@/lib/utils';
 
 function Card({
@@ -38,7 +37,7 @@ function CardTitle({ className, ...props }: React.ComponentProps<'div'>) {
     <div
       data-slot="card-title"
       className={cn(
-        'font-heading text-sm font-medium group-data-[size=sm]/card:text-sm',
+        'text-sm font-medium group-data-[size=sm]/card:text-sm',
         className,
       )}
       {...props}

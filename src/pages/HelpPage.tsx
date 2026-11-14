@@ -451,12 +451,12 @@ export function HelpPage() {
         <Section id="preferences" title="Preferences" index={15}>
           <p>
             The gear icon holds a motion switch, the timer sound, the theme, and
-            your name. Themes: System (follows your device), Light, Dark (side),
-            and three just for fun: Dagobah, Tatooine and Kamino. The theme is
-            yours alone; other people on the board keep their own. Motion
-            follows your operating system's "reduce motion" setting first; when
-            that is on, the switch is disabled and nothing animates (the tab
-            title shows the timer alert without flashing).
+            your name. Themes: System (follows your device), Light, Dark, and
+            three just for fun: Dagobah, Tatooine and Kamino. The theme is yours
+            alone; other people on the board keep their own. Motion follows your
+            operating system's "reduce motion" setting first; when that is on,
+            the switch is disabled and nothing animates (the tab title shows the
+            timer alert without flashing).
           </p>
           <p className="text-muted-foreground">
             Want to run Holocron on your own Cloudflare account? The{' '}
