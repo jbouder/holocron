@@ -38,7 +38,10 @@ itself on an alarm.
 ## Stack
 
 React 19 + TypeScript + Vite 7 · Tailwind CSS v4 (CSS-first, `src/index.css`) ·
-stock shadcn `base-lyra` on Base UI (`src/components/ui`, CLI-managed, do not
+[Beskar](https://github.com/jbouder/beskar), a shadcn `base-lyra` registry on
+Base UI (add or update one with `bunx shadcn@latest add @beskar/<name>
+--overwrite`; the `beskar-ui` skill is in `.claude/skills`;
+`src/components/ui`, CLI-managed, do not
 hand-edit) · Phosphor icons · Biome · zod · Cloudflare Workers + Durable Objects
 via `@cloudflare/vite-plugin` · **bun** for installs (npm's resolver currently
 fails on Vitest 4.1 peers).

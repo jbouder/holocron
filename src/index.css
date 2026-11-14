@@ -59,6 +59,23 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  --color-fx-glow: var(--fx-glow);
+  --color-tone-blue-soft: var(--tone-blue-soft);
+  --color-tone-blue: var(--tone-blue);
+  --color-tone-red-soft: var(--tone-red-soft);
+  --color-tone-red: var(--tone-red);
+  --color-tone-amber-soft: var(--tone-amber-soft);
+  --color-tone-amber: var(--tone-amber);
+  --color-tone-green-soft: var(--tone-green-soft);
+  --color-tone-green: var(--tone-green);
+  --color-tone-cyan-soft: var(--tone-cyan-soft);
+  --color-tone-cyan: var(--tone-cyan);
+  --color-tone-violet-soft: var(--tone-violet-soft);
+  --color-tone-violet: var(--tone-violet);
+  --color-warn-foreground: var(--warn-foreground);
+  --color-warn: var(--warn);
+  --color-ok-foreground: var(--ok-foreground);
+  --color-ok: var(--ok);
 }
 
 :root {
@@ -98,43 +115,75 @@
   /* Pointer-tracking glow (spotlight borders). Brighter than --ring so the
    * edge reads clearly; the light theme darkens instead of washing out. */
   --fx-glow: oklch(0.42 0 0);
+  --ok: oklch(0.53 0.13 150);
+  --ok-foreground: oklch(0.99 0.01 150);
+  --warn: oklch(0.54 0.14 75);
+  --warn-foreground: oklch(0.99 0.01 75);
+  --tone-violet: oklch(0.5 0.22 295);
+  --tone-violet-soft: oklch(0.92 0.07 295);
+  --tone-cyan: oklch(0.47 0.13 210);
+  --tone-cyan-soft: oklch(0.92 0.07 210);
+  --tone-green: oklch(0.48 0.15 150);
+  --tone-green-soft: oklch(0.92 0.09 150);
+  --tone-amber: oklch(0.49 0.18 55);
+  --tone-amber-soft: oklch(0.92 0.11 65);
+  --tone-red: oklch(0.52 0.21 27);
+  --tone-red-soft: oklch(0.92 0.06 27);
+  --tone-blue: oklch(0.5 0.21 264);
+  --tone-blue-soft: oklch(0.92 0.07 264);
 }
 
 .dark {
-  /* Dark (side): near-black with Sith red. Primary is already red, so
-   * danger reads as amber. */
-  --background: oklch(0.13 0.01 20);
-  --foreground: oklch(0.94 0.01 20);
-  --card: oklch(0.18 0.02 20);
-  --card-foreground: oklch(0.94 0.01 20);
-  --popover: oklch(0.18 0.02 20);
-  --popover-foreground: oklch(0.94 0.01 20);
-  --primary: oklch(0.57 0.22 27);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.27 0.06 25);
-  --secondary-foreground: oklch(0.94 0.01 20);
-  --muted: oklch(0.24 0.03 20);
-  --muted-foreground: oklch(0.74 0.03 20);
-  --accent: oklch(0.28 0.07 25);
-  --accent-foreground: oklch(0.94 0.01 20);
-  --destructive: oklch(0.8 0.15 65);
-  --border: oklch(0.7 0.15 25 / 18%);
-  --input: oklch(0.7 0.15 25 / 22%);
-  --ring: oklch(0.66 0.21 27);
-  --chart-1: oklch(0.57 0.22 27);
-  --chart-2: oklch(0.72 0.18 35);
-  --chart-3: oklch(0.5 0.18 20);
-  --chart-4: oklch(0.4 0.14 20);
-  --chart-5: oklch(0.3 0.08 20);
-  --sidebar: oklch(0.18 0.02 20);
-  --sidebar-foreground: oklch(0.94 0.01 20);
-  --sidebar-primary: oklch(0.57 0.22 27);
-  --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.28 0.07 25);
-  --sidebar-accent-foreground: oklch(0.94 0.01 20);
-  --sidebar-border: oklch(0.7 0.15 25 / 18%);
-  --sidebar-ring: oklch(0.66 0.21 27);
-  --fx-glow: oklch(0.68 0.24 27);
+  /* Dark: the neutral counterpart of Light, from the Beskar theme. The same
+   * grays inverted, with no tint. */
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.72 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 36%);
+  --ring: oklch(0.8 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.18 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.922 0 0);
+  --sidebar-primary-foreground: oklch(0.205 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.8 0 0);
+  --fx-glow: oklch(0.75 0 0);
+  --ok: oklch(0.76 0.14 150);
+  --ok-foreground: oklch(0.2 0.04 150);
+  --warn: oklch(0.8 0.14 80);
+  --warn-foreground: oklch(0.2 0.04 80);
+  --tone-violet: oklch(0.66 0.15 300);
+  --tone-violet-soft: oklch(0.25 0.06 300);
+  --tone-cyan: oklch(0.78 0.09 218);
+  --tone-cyan-soft: oklch(0.25 0.05 218);
+  --tone-green: oklch(0.78 0.14 152);
+  --tone-green-soft: oklch(0.26 0.06 152);
+  --tone-amber: oklch(0.82 0.13 88);
+  --tone-amber-soft: oklch(0.26 0.06 88);
+  --tone-red: oklch(0.66 0.19 25);
+  --tone-red-soft: oklch(0.25 0.08 25);
+  --tone-blue: oklch(0.73 0.12 250);
+  --tone-blue-soft: oklch(0.26 0.07 250);
 }
 
 /* ---- Extra themes ----------------------------------------------------------

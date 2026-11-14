@@ -74,7 +74,7 @@ WebSockets, and wipes itself on an alarm.
   blurring, the facilitation lock), delete any card or comment, and delete
   the board early. Ownership is a token in the creating browser; the server
   stores only its hash.
-- **Themes**: System, Light, Dark (side), plus Dagobah, Tatooine and
+- **Themes**: System, Light, Dark, plus Dagobah, Tatooine and
   Kamino, and motion and timer-sound switches in Preferences.
   `prefers-reduced-motion` is a hard override.
 - **In-app help** at `/help` covers everything above for participants.
@@ -129,7 +129,7 @@ conformance statement.
 
 ## Stack
 
-React 19 + TypeScript + Vite 7, Tailwind CSS v4, stock shadcn (base-lyra on
+React 19 + TypeScript + Vite 7, Tailwind CSS v4, [Beskar](https://github.com/jbouder/beskar) (a shadcn base-lyra registry on
 Base UI), Oxanium + JetBrains Mono, Phosphor icons, zod, Biome. Cloudflare
 Workers + Durable Objects (SQLite storage, WebSocket hibernation) through
 `@cloudflare/vite-plugin`. Tests with Vitest inside workerd via
