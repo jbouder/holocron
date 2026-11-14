@@ -90,13 +90,20 @@ fails on Vitest 4.1 peers).
 bun install
 npm run dev          # Vite + Worker + DO locally (Miniflare)
 npm test             # wrangler types + vitest (runs in workerd)
-npm run e2e          # playwright: build, vite preview, browser suite
+npm run e2e          # playwright: build, vite preview, browser suite (CI runs this)
 npm run check        # biome check --write
 npm run build        # wrangler types + tsc -b + vite build
 npm run deploy       # build + wrangler deploy
 ```
 
-Run `npm run check && npm run build && npm test` before finishing any change,
-and `npm run e2e` when it touches the UI (first time: `bunx playwright
-install chromium`). Verify UI changes in the browser with two tabs on the
-same board too; add an e2e spec when a flow is worth keeping.
+Run `npm run check && npm run build && npm test` before finishing any change.
+When it touches the UI, also run the specs for what changed:
+`npx playwright test --only-changed=main` (first time: `bunx playwright
+install chromium`). Do not run the full `npm run e2e` locally: CI runs every
+spec on every pull request, and that is the gate. Verify UI changes in the
+browser with two tabs on the same board too; add an e2e spec when a flow is
+worth keeping.
+
+Each e2e run leaves its boards in the local Worker's state, `.wrangler/state`,
+for good. If the build gets slow, delete that folder: it is local dev data
+only, and the next run recreates it.
